@@ -4,14 +4,14 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.jainigtm.mapventure',
-  appName: 'MapVenture',
+  appId: 'com.jainigtm.mapventure.moon',
+  appName: 'MapVenture Moon',
   webDir: 'dist',
   backgroundColor: '#0b1514',
   loggingBehavior: 'debug',
   android: {
     allowMixedContent: false,
-    appendUserAgent: ' MapVenture/1.0 (+https://github.com/jain-Igtm/MapVenture)',
+    appendUserAgent: ' MapVenture-Moon/1.0 (+https://github.com/jain-Igtm/MapVenture)',
     backgroundColor: '#0b1514'
   },
   server: {
