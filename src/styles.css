@@ -406,6 +406,8 @@ button:disabled {
   background: var(--surface);
   box-shadow: var(--small-shadow);
   transform: translateX(-50%);
+  touch-action: manipulation;
+  user-select: none;
   backdrop-filter: blur(20px);
 }
 

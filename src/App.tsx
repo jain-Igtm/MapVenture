@@ -9,7 +9,6 @@ import {
   MapPinPlus,
   Navigation,
   PencilRuler,
-  Plus,
   Radio,
   Undo2
 } from 'lucide-react'
@@ -43,6 +42,7 @@ import { MapCanvas } from './components/MapCanvas'
 import { SavedSheet } from './components/SavedSheet'
 import { SearchBar } from './components/SearchBar'
 import { SettingsSheet } from './components/SettingsSheet'
+import { StartMapButton } from './components/StartMapButton'
 import { SurveySheet } from './components/SurveySheet'
 import { Toast, type ToastMessage } from './components/Toast'
 
@@ -519,13 +519,7 @@ export default function App() {
       </div>
 
       {allFeatures.length === 0 && sheet === 'none' && !survey && (
-        <button className="first-pin-hint" onClick={() => void locate(true)}>
-          <span><Plus size={18} /></span>
-          <div>
-            <strong>Start your map</strong>
-            <small>Save where you are, or hold anywhere on the map.</small>
-          </div>
-        </button>
+        <StartMapButton onStart={() => void locate(true)} />
       )}
 
       {survey && sheet !== 'survey' && sheet !== 'editor' && (
