@@ -31,6 +31,12 @@ jobs:
           java-version: 21
           cache: gradle
 
+      - name: Restore stable Android signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: mapventure-personal-debug-signing-v1
+
       - name: Install dependencies
         run: npm ci
 
@@ -46,16 +52,16 @@ jobs:
 
       - name: Prepare download
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk MapVenture-Moon.apk
-          sha256sum MapVenture-Moon.apk > MapVenture-Moon.apk.sha256
+          cp android/app/build/outputs/apk/debug/app-debug.apk MapVenture.apk
+          sha256sum MapVenture.apk > MapVenture.apk.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MapVenture-Moon-Android
+          name: MapVenture-Android
           path: |
-            MapVenture-Moon.apk
-            MapVenture-Moon.apk.sha256
+            MapVenture.apk
+            MapVenture.apk.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -66,8 +72,8 @@ jobs:
         run: |
           tag="android-${GITHUB_RUN_NUMBER}"
           gh release create "$tag" \
-            MapVenture-Moon.apk \
-            MapVenture-Moon.apk.sha256 \
-            --title "MapVenture Moon Android build ${GITHUB_RUN_NUMBER}" \
-            --notes "Install MapVenture-Moon.apk on Android 7 or newer. It installs as the separate MapVenture Moon app, alongside earlier MapVenture builds." \
+            MapVenture.apk \
+            MapVenture.apk.sha256 \
+            --title "MapVenture Android build ${GITHUB_RUN_NUMBER}" \
+            --notes "Install MapVenture.apk on Android 7 or newer. This build uses a stable signing identity so future updates can install over it." \
             --latest

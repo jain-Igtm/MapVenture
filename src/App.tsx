@@ -122,10 +122,12 @@ export default function App() {
   const [locationFocusToken, setLocationFocusToken] = useState(0)
   const [toast, setToast] = useState<ToastMessage>()
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent>()
+  const [startingMap, setStartingMap] = useState(false)
   const toastTimerRef = useRef<number | undefined>(undefined)
   const settingsTimerRef = useRef<number | undefined>(undefined)
   const lastSurveyFixRef = useRef(0)
   const lastSurveyAppendRef = useRef(0)
+  const startingMapRef = useRef(false)
 
   useTheme(settings)
 
@@ -305,6 +307,18 @@ export default function App() {
       showToast(error instanceof Error ? error.message : 'Location is unavailable.', 'warning')
     }
   }, [geo, createDraft, survey, showToast])
+
+  const startMap = useCallback(async () => {
+    if (startingMapRef.current) return
+    startingMapRef.current = true
+    setStartingMap(true)
+    try {
+      await locate(true)
+    } finally {
+      startingMapRef.current = false
+      setStartingMap(false)
+    }
+  }, [locate])
 
   const startSurvey = useCallback(async (
     mode: SurveyState['mode'],
@@ -524,7 +538,10 @@ export default function App() {
       </div>
 
       {allFeatures.length === 0 && sheet === 'none' && !survey && (
-        <StartMapButton onStart={() => void locate(true)} />
+        <StartMapButton
+          busy={startingMap}
+          onStart={() => void startMap()}
+        />
       )}
 
       {survey && sheet !== 'survey' && sheet !== 'editor' && (

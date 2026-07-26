@@ -475,6 +475,25 @@ button:disabled {
   backdrop-filter: blur(20px);
 }
 
+.first-pin-hint:disabled {
+  cursor: wait;
+  opacity: 1;
+}
+
+.first-pin-hint.is-busy {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+}
+
+.first-pin-hint__spinner {
+  animation: first-pin-spin 0.85s linear infinite;
+}
+
+@keyframes first-pin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .first-pin-hint > span {
   display: grid;
   flex: 0 0 auto;

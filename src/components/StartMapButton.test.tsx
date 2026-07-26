@@ -1,51 +1,41 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { MouseEvent, PointerEvent, ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { StartMapButton } from './StartMapButton'
 
 interface StartMapButtonHandlers {
-  onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void
-  onClick: (event: MouseEvent<HTMLButtonElement>) => void
+  onClick: () => void
+  onPointerDown?: () => void
+  disabled: boolean
+  'aria-busy': boolean
 }
 
-function handlersFor(onStart: () => void) {
-  const element = StartMapButton({ onStart }) as ReactElement<StartMapButtonHandlers>
+function handlersFor(onStart: () => void, busy = false) {
+  const element = StartMapButton({ onStart, busy }) as ReactElement<StartMapButtonHandlers>
   return element.props
 }
 
 describe('StartMapButton', () => {
-  it('starts on the initial primary pointer contact', () => {
+  it('starts from one ordinary click', () => {
     const onStart = vi.fn()
-    const preventDefault = vi.fn()
-    const stopPropagation = vi.fn()
     const handlers = handlersFor(onStart)
 
-    handlers.onPointerDown({
-      isPrimary: true,
-      button: 0,
-      preventDefault,
-      stopPropagation
-    } as unknown as PointerEvent<HTMLButtonElement>)
+    handlers.onClick()
 
     expect(onStart).toHaveBeenCalledTimes(1)
-    expect(preventDefault).toHaveBeenCalledTimes(1)
-    expect(stopPropagation).toHaveBeenCalledTimes(1)
   })
 
-  it('ignores the compatibility click after a pointer press', () => {
+  it('does not use an early pointer-down handler', () => {
     const onStart = vi.fn()
     const handlers = handlersFor(onStart)
 
-    handlers.onClick({ detail: 1 } as MouseEvent<HTMLButtonElement>)
-
-    expect(onStart).not.toHaveBeenCalled()
+    expect(handlers.onPointerDown).toBeUndefined()
   })
 
-  it('still starts from a keyboard-generated click', () => {
+  it('becomes busy and disabled while location is being resolved', () => {
     const onStart = vi.fn()
-    const handlers = handlersFor(onStart)
+    const handlers = handlersFor(onStart, true)
 
-    handlers.onClick({ detail: 0 } as MouseEvent<HTMLButtonElement>)
-
-    expect(onStart).toHaveBeenCalledTimes(1)
+    expect(handlers.disabled).toBe(true)
+    expect(handlers['aria-busy']).toBe(true)
   })
 })
