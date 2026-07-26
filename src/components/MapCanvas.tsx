@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { Capacitor } from '@capacitor/core'
 import * as maplibregl from 'maplibre-gl'
 import {
   type GeoJSONSource,
@@ -47,6 +48,7 @@ const styleUrls = {
 }
 
 const emptyCollection: FeatureCollection = { type: 'FeatureCollection', features: [] }
+const isNativeApp = Capacitor.isNativePlatform()
 const fallbackStyle: StyleSpecification = {
   version: 8,
   sources: {
@@ -54,6 +56,7 @@ const fallbackStyle: StyleSpecification = {
       type: 'raster',
       tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
+      maxzoom: 19,
       attribution: '© OpenStreetMap contributors'
     }
   },
@@ -66,7 +69,8 @@ const fallbackStyle: StyleSpecification = {
     {
       id: 'openstreetmap-fallback',
       type: 'raster',
-      source: 'openstreetmap-fallback'
+      source: 'openstreetmap-fallback',
+      paint: { 'raster-fade-duration': 0 }
     }
   ]
 }
@@ -158,7 +162,7 @@ export function MapCanvas({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: styleUrls[settings.mapStyle],
+      style: isNativeApp ? fallbackStyle : styleUrls[settings.mapStyle],
       center: initialCenter as [number, number],
       zoom: settings.lastZoom ?? 11,
       attributionControl: false,
@@ -503,7 +507,7 @@ export function MapCanvas({
     if (!map || styleKeyRef.current === settings.mapStyle) return
     styleKeyRef.current = settings.mapStyle
     loadedRef.current = false
-    map.setStyle(styleUrls[settings.mapStyle])
+    map.setStyle(isNativeApp ? fallbackStyle : styleUrls[settings.mapStyle])
   }, [settings.mapStyle])
 
   useEffect(() => {
