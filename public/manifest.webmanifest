@@ -1,0 +1,21 @@
+{
+  "name": "MapVenture",
+  "short_name": "MapVenture",
+  "description": "Your private map for saved places, trails, and field maps.",
+  "id": "/MapVenture/",
+  "start_url": "/MapVenture/",
+  "scope": "/MapVenture/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b1514",
+  "theme_color": "#0b1514",
+  "categories": ["navigation", "travel", "utilities"],
+  "icons": [
+    {
+      "src": "app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
