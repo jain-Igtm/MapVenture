@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
   loggingBehavior: 'debug',
   android: {
     allowMixedContent: false,
-    appendUserAgent: ' MapVenture/1.0 (+https://github.com/jain-Igtm/MapVenture)',
+    appendUserAgent: ' MapVenture/1.1 (+https://github.com/jain-Igtm/MapVenture)',
     backgroundColor: '#0b1514'
   },
   server: {

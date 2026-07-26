@@ -6,9 +6,12 @@ phone-first map with infrastructure for creating, categorizing, and notating loc
 
 - Save current locations or locations on maps.
 - Categorize pins of locations without limitations.
-- Search names, notes, tags, and categories.
+- Search saved content plus real-world places and street addresses.
 - Attach notes, tags, visit dates, and compressed photographs.
-- Open driving or walking directions in Google Maps.
+- Build driving or walking routes between the current location, saved points, and searched places without leaving MapVenture.
+- Keep a route line, trip summary, and turn-by-turn list visible in the app.
+- Swipe down from any sheet or menu to dismiss it.
+- Track the current lunar phase and upcoming phase changes.
 - Record live GPS trails and boundaries with pause and resume controls.
 - Drop feature pins without ending an active GPS survey.
 - Draw trails and areas manually by tapping the map.
@@ -24,6 +27,10 @@ phone-first map with infrastructure for creating, categorizing, and notating loc
 ## Privacy
 
 All personal map data is stored locally in IndexedDB on user devices. GitHub contains only the application code. Location history, notes, photographs, and saved features are never written to the repository.
+
+Real-world search sends only a user-submitted search phrase and optional location bias to
+Photon. Building a route sends its two endpoint coordinates and travel mode to Valhalla.
+Neither operation runs in the background.
 
 Browser storage can be cleared by the device or user, so regular complete backups are recommended.
 
@@ -64,9 +71,8 @@ The latest merged APK is available from:
 https://github.com/jain-Igtm/MapVenture/releases/latest/download/MapVenture.apk
 
 The APK and the GitHub Pages version use separate private databases. Export a complete JSON
-backup from one installation before moving data to the other. The current CI build uses
-Android's debug signing mode for personal sideloading; future production updates should use
-one stable release keystore stored in GitHub Actions secrets.
+backup from one installation before moving data to the other. CI preserves one stable personal
+debug signing identity so newer APK artifacts can update an earlier personal installation.
 
 ## Deployment
 
@@ -75,7 +81,9 @@ Merging to `main` runs the verification workflow and the GitHub Pages deployment
 ## Mapping stack
 
 - React and TypeScript
-- MapLibre GL JS with OpenFreeMap styles
+- Leaflet with OpenStreetMap tiles
+- Photon for OpenStreetMap place and address search
+- Valhalla for OpenStreetMap-based driving and walking routes
 - Dexie/IndexedDB for local-first data
 - Turf for geographic measurements
-- Vite PWA and Workbox for installation and caching
+- Vite PWA shell and tile caching

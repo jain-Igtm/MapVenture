@@ -11,6 +11,8 @@ import type {
   Category,
   GeoFix,
   MapFeature,
+  RoutePlan,
+  SearchPlace,
   SurveyState
 } from '../types'
 import {
@@ -23,12 +25,16 @@ interface MapCanvasProps {
   features: MapFeature[]
   categories: Category[]
   selectedFeature?: MapFeature
+  searchPlace?: SearchPlace
+  route?: RoutePlan
   survey: SurveyState | null
   geoFix: GeoFix | null
   settings: AppSettings
   editableGeometry?: Geometry
   editingGeometry: boolean
   focusToken: number
+  searchFocusToken: number
+  routeFocusToken: number
   locationFocusToken: number
   onSelect: (id: string) => void
   onLongPress: (position: Position) => void
@@ -93,12 +99,16 @@ export function MapCanvas({
   features,
   categories,
   selectedFeature,
+  searchPlace,
+  route,
   survey,
   geoFix,
   settings,
   editableGeometry,
   editingGeometry,
   focusToken,
+  searchFocusToken,
+  routeFocusToken,
   locationFocusToken,
   onSelect,
   onLongPress,
@@ -109,7 +119,9 @@ export function MapCanvas({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const featureLayersRef = useRef<LayerGroup | null>(null)
+  const routeLayersRef = useRef<LayerGroup | null>(null)
   const selectedLayersRef = useRef<LayerGroup | null>(null)
+  const searchLayersRef = useRef<LayerGroup | null>(null)
   const surveyLayersRef = useRef<LayerGroup | null>(null)
   const editLayersRef = useRef<LayerGroup | null>(null)
   const locationLayersRef = useRef<LayerGroup | null>(null)
@@ -164,7 +176,9 @@ export function MapCanvas({
     L.control.attribution({ position: 'topright', prefix: false }).addTo(map)
 
     featureLayersRef.current = L.layerGroup().addTo(map)
+    routeLayersRef.current = L.layerGroup().addTo(map)
     selectedLayersRef.current = L.layerGroup().addTo(map)
+    searchLayersRef.current = L.layerGroup().addTo(map)
     surveyLayersRef.current = L.layerGroup().addTo(map)
     editLayersRef.current = L.layerGroup().addTo(map)
     locationLayersRef.current = L.layerGroup().addTo(map)
@@ -237,7 +251,9 @@ export function MapCanvas({
       map.remove()
       mapRef.current = null
       featureLayersRef.current = null
+      routeLayersRef.current = null
       selectedLayersRef.current = null
+      searchLayersRef.current = null
       surveyLayersRef.current = null
       editLayersRef.current = null
       locationLayersRef.current = null
@@ -285,6 +301,48 @@ export function MapCanvas({
   }, [features, categories])
 
   useEffect(() => {
+    const group = routeLayersRef.current
+    if (!group) return
+    group.clearLayers()
+    if (!route || route.coordinates.length < 2) return
+
+    const latLngs = route.coordinates.map(toLatLng)
+    L.polyline(latLngs, {
+      color: '#09251f',
+      weight: 10,
+      opacity: 0.62,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false
+    }).addTo(group)
+    L.polyline(latLngs, {
+      color: '#67d2b4',
+      weight: 6,
+      opacity: 1,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false
+    }).addTo(group)
+
+    L.circleMarker(latLngs[0], {
+      radius: 8,
+      color: '#ffffff',
+      weight: 3,
+      fillColor: '#1d9a77',
+      fillOpacity: 1,
+      interactive: false
+    }).addTo(group)
+    L.circleMarker(latLngs.at(-1)!, {
+      radius: 9,
+      color: '#ffffff',
+      weight: 3,
+      fillColor: '#e06c5f',
+      fillOpacity: 1,
+      interactive: false
+    }).addTo(group)
+  }, [route])
+
+  useEffect(() => {
     const group = selectedLayersRef.current
     if (!group) return
     group.clearLayers()
@@ -310,6 +368,31 @@ export function MapCanvas({
       })
     }).addTo(group)
   }, [editableGeometry, selectedFeature])
+
+  useEffect(() => {
+    const group = searchLayersRef.current
+    if (!group) return
+    group.clearLayers()
+    if (!searchPlace) return
+
+    const latLng = toLatLng(searchPlace.position)
+    L.circleMarker(latLng, {
+      radius: 15,
+      color: 'rgba(255, 255, 255, 0.82)',
+      weight: 3,
+      fillColor: '#67d2b4',
+      fillOpacity: 0.2,
+      interactive: false
+    }).addTo(group)
+    L.circleMarker(latLng, {
+      radius: 7,
+      color: '#ffffff',
+      weight: 3,
+      fillColor: '#1d9a77',
+      fillOpacity: 1,
+      interactive: false
+    }).addTo(group)
+  }, [searchPlace])
 
   useEffect(() => {
     const group = surveyLayersRef.current
@@ -433,6 +516,29 @@ export function MapCanvas({
       }
     )
   }, [focusToken])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !searchPlace || searchFocusToken === 0) return
+    map.flyTo(
+      toLatLng(searchPlace.position),
+      Math.max(map.getZoom(), 16),
+      { animate: true, duration: 0.65 }
+    )
+  }, [searchFocusToken])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !route || route.coordinates.length < 2 || routeFocusToken === 0) return
+    const bounds = L.latLngBounds(route.coordinates.map(toLatLng))
+    map.flyToBounds(bounds, {
+      paddingTopLeft: [34, 105],
+      paddingBottomRight: [34, 250],
+      maxZoom: 17,
+      animate: true,
+      duration: 0.75
+    })
+  }, [routeFocusToken])
 
   useEffect(() => {
     const map = mapRef.current

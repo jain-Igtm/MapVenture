@@ -60,6 +60,42 @@ export interface GeoFix {
   timestamp: number
 }
 
+export interface SearchPlace {
+  id: string
+  name: string
+  address: string
+  position: Position
+  kind?: string
+}
+
+export type TravelMode = 'driving' | 'walking'
+
+export interface RouteEndpoint {
+  id: string
+  label: string
+  subtitle?: string
+  position: Position
+  source: 'current' | 'saved' | 'search'
+}
+
+export interface RouteStep {
+  id: string
+  instruction: string
+  distanceMeters: number
+  durationSeconds: number
+}
+
+export interface RoutePlan {
+  mode: TravelMode
+  origin: RouteEndpoint
+  destination: RouteEndpoint
+  coordinates: Position[]
+  distanceMeters: number
+  durationSeconds: number
+  steps: RouteStep[]
+  createdAt: number
+}
+
 export interface SurveyState {
   mode: 'record-trail' | 'record-area' | 'draw-trail' | 'draw-area'
   coordinates: Position[]
@@ -76,6 +112,9 @@ export type SheetName =
   | 'editor'
   | 'detail'
   | 'categories'
+  | 'search'
+  | 'place'
+  | 'route'
 
 export interface MapVentureBackup {
   app: 'MapVenture'

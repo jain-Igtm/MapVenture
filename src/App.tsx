@@ -19,19 +19,26 @@ import { useGeolocation } from './hooks/useGeolocation'
 import { importDataFile, downloadBackup, downloadGeoJSON } from './lib/backup'
 import {
   canFinishSurvey,
+  destinationForGeometry,
   fixToPosition,
   pointGeometry,
   positionDistanceMeters,
   surveyGeometry
 } from './lib/geo'
 import { filterMapFeatures } from './lib/filter'
+import { searchPlaces } from './lib/placeSearch'
+import { requestRoute } from './lib/routing'
 import type {
   AppSettings,
   Category,
   FeatureKind,
   MapFeature,
+  RouteEndpoint,
+  RoutePlan,
+  SearchPlace,
   SheetName,
-  SurveyState
+  SurveyState,
+  TravelMode
 } from './types'
 import { BottomNav } from './components/BottomNav'
 import { BottomSheet } from './components/BottomSheet'
@@ -40,8 +47,12 @@ import { FeatureDetail } from './components/FeatureDetail'
 import { FeatureEditor } from './components/FeatureEditor'
 import { MapCanvas } from './components/MapCanvas'
 import { MoonCorner, MoonPage } from './components/MoonPage'
+import { PlaceSearchSheet } from './components/PlaceSearchSheet'
+import { RouteChip } from './components/RouteChip'
+import { RouteSheet } from './components/RouteSheet'
 import { SavedSheet } from './components/SavedSheet'
 import { SearchBar } from './components/SearchBar'
+import { SearchPlaceDetail } from './components/SearchPlaceDetail'
 import { SettingsSheet } from './components/SettingsSheet'
 import { StartMapButton } from './components/StartMapButton'
 import { SurveySheet } from './components/SurveySheet'
@@ -50,6 +61,26 @@ import { Toast, type ToastMessage } from './components/Toast'
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+function routeEndpointForFeature(feature: MapFeature): RouteEndpoint {
+  return {
+    id: `saved:${feature.id}`,
+    label: feature.name || `Saved ${feature.kind}`,
+    subtitle: feature.description || `Saved ${feature.kind}`,
+    position: destinationForGeometry(feature.geometry),
+    source: 'saved'
+  }
+}
+
+function routeEndpointForPlace(place: SearchPlace): RouteEndpoint {
+  return {
+    id: `search:${place.id}`,
+    label: place.name,
+    subtitle: place.address,
+    position: place.position,
+    source: 'search'
+  }
 }
 
 function newFeature(
@@ -123,11 +154,24 @@ export default function App() {
   const [toast, setToast] = useState<ToastMessage>()
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent>()
   const [startingMap, setStartingMap] = useState(false)
+  const [placeResults, setPlaceResults] = useState<SearchPlace[]>([])
+  const [placeSearchLoading, setPlaceSearchLoading] = useState(false)
+  const [placeSearchError, setPlaceSearchError] = useState<string>()
+  const [searchedPlace, setSearchedPlace] = useState<SearchPlace>()
+  const [searchFocusToken, setSearchFocusToken] = useState(0)
+  const [routeDestination, setRouteDestination] = useState<RouteEndpoint>()
+  const [routeMode, setRouteMode] = useState<TravelMode>('driving')
+  const [routePlan, setRoutePlan] = useState<RoutePlan>()
+  const [routeLoading, setRouteLoading] = useState(false)
+  const [routeError, setRouteError] = useState<string>()
+  const [routeFocusToken, setRouteFocusToken] = useState(0)
   const toastTimerRef = useRef<number | undefined>(undefined)
   const settingsTimerRef = useRef<number | undefined>(undefined)
   const lastSurveyFixRef = useRef(0)
   const lastSurveyAppendRef = useRef(0)
   const startingMapRef = useRef(false)
+  const placeSearchRequestRef = useRef(0)
+  const routeRequestRef = useRef(0)
 
   useTheme(settings)
 
@@ -158,10 +202,30 @@ export default function App() {
     return filterMapFeatures(allFeatures, categories, query, activeMapId)
   }, [allFeatures, categories, query, activeMapId])
 
+  const routePoints = useMemo(() => {
+    const points = allFeatures.map(routeEndpointForFeature)
+    const transientPoints = [
+      searchedPlace ? routeEndpointForPlace(searchedPlace) : undefined,
+      routeDestination,
+      routePlan?.origin.source === 'current' ? undefined : routePlan?.origin,
+      routePlan?.destination
+    ]
+    transientPoints.forEach((point) => {
+      if (point && !points.some((candidate) => candidate.id === point.id)) points.unshift(point)
+    })
+    return points
+  }, [allFeatures, routeDestination, routePlan, searchedPlace])
+
   const createDraft = useCallback((
     kind: FeatureKind,
     geometry: Geometry,
-    options?: { source?: MapFeature['source']; isFieldMap?: boolean; returnTo?: SheetName }
+    options?: {
+      source?: MapFeature['source']
+      isFieldMap?: boolean
+      returnTo?: SheetName
+      name?: string
+      description?: string
+    }
   ) => {
     const feature = newFeature(
       kind,
@@ -170,6 +234,8 @@ export default function App() {
       options?.source,
       options?.isFieldMap
     )
+    feature.name = options?.name ?? ''
+    feature.description = options?.description ?? ''
     setEditorDraft(feature)
     setEditorExisting(false)
     setEditorReturnSheet(options?.returnTo ?? (survey ? 'survey' : 'none'))
@@ -196,6 +262,7 @@ export default function App() {
     }
     await db.features.put(saved)
     setEditorDraft(undefined)
+    setSearchedPlace(undefined)
     setEditingGeometry(false)
     setSelectedId(saved.id)
     setFocusToken((token) => token + 1)
@@ -236,6 +303,7 @@ export default function App() {
     const feature = allFeatures.find((candidate) => candidate.id === id)
     if (!feature) return
     setSelectedId(id)
+    setSearchedPlace(undefined)
     setEditorDraft(undefined)
     setEditingGeometry(false)
     setSheet('detail')
@@ -246,6 +314,7 @@ export default function App() {
   const openFieldMap = useCallback((feature: MapFeature) => {
     setActiveMapId(feature.id)
     setSelectedId(feature.id)
+    setSearchedPlace(undefined)
     setQuery('')
     setSheet('none')
     setFocusToken((token) => token + 1)
@@ -257,6 +326,117 @@ export default function App() {
     setQuery('')
     setSheet('none')
   }, [])
+
+  const submitPlaceSearch = useCallback(async () => {
+    const normalizedQuery = query.trim()
+    if (normalizedQuery.length < 2) {
+      showToast('Enter at least two characters to search.', 'warning')
+      return
+    }
+
+    const requestId = placeSearchRequestRef.current + 1
+    placeSearchRequestRef.current = requestId
+    setPlaceSearchLoading(true)
+    setPlaceSearchError(undefined)
+    setPlaceResults([])
+    setSheet('search')
+
+    const bias = geo.fix
+      ? fixToPosition(geo.fix)
+      : settings.lastCenter
+
+    try {
+      const results = await searchPlaces(normalizedQuery, bias)
+      if (placeSearchRequestRef.current !== requestId) return
+      setPlaceResults(results)
+    } catch (error) {
+      if (placeSearchRequestRef.current !== requestId) return
+      setPlaceSearchError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Place search is unavailable right now.'
+      )
+    } finally {
+      if (placeSearchRequestRef.current === requestId) setPlaceSearchLoading(false)
+    }
+  }, [geo.fix, query, settings.lastCenter, showToast])
+
+  const previewPlace = useCallback((place: SearchPlace) => {
+    setSearchedPlace(place)
+    setSelectedId(undefined)
+    setSheet('place')
+    setSearchFocusToken((token) => token + 1)
+    navigator.vibrate?.(8)
+  }, [])
+
+  const clearRoute = useCallback(() => {
+    routeRequestRef.current += 1
+    setRoutePlan(undefined)
+    setRouteDestination(undefined)
+    setRouteError(undefined)
+    setRouteLoading(false)
+  }, [])
+
+  const buildNavigation = useCallback(async (
+    originId: string,
+    destination: RouteEndpoint,
+    mode: TravelMode
+  ) => {
+    const requestId = routeRequestRef.current + 1
+    routeRequestRef.current = requestId
+    setRouteDestination(destination)
+    setRouteMode(mode)
+    setRouteLoading(true)
+    setRouteError(undefined)
+
+    try {
+      let origin: RouteEndpoint
+      if (originId === 'current') {
+        const fix = geo.fix ?? await geo.locate()
+        origin = {
+          id: 'current',
+          label: 'My current location',
+          position: fixToPosition(fix),
+          source: 'current'
+        }
+        setLocationFocusToken((token) => token + 1)
+      } else {
+        const point = routePoints.find((candidate) => candidate.id === originId)
+        if (!point) throw new Error('Choose a valid starting point.')
+        origin = point
+      }
+
+      if (routeRequestRef.current !== requestId) return
+      if (positionDistanceMeters(origin.position, destination.position) < 3) {
+        throw new Error('The start and destination are the same point.')
+      }
+
+      const route = await requestRoute(origin, destination, mode)
+      if (routeRequestRef.current !== requestId) return
+      setRoutePlan(route)
+      setRouteFocusToken((token) => token + 1)
+      navigator.vibrate?.(10)
+    } catch (error) {
+      if (routeRequestRef.current !== requestId) return
+      setRoutePlan(undefined)
+      setRouteError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'A route could not be built between those points.'
+      )
+    } finally {
+      if (routeRequestRef.current === requestId) setRouteLoading(false)
+    }
+  }, [geo, routePoints])
+
+  const openNavigation = useCallback((destination: RouteEndpoint, mode: TravelMode) => {
+    setRouteDestination(destination)
+    setRouteMode(mode)
+    setRoutePlan(undefined)
+    setRouteError(undefined)
+    setSheet('route')
+    void buildNavigation('current', destination, mode)
+  }, [buildNavigation])
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
@@ -457,10 +637,12 @@ export default function App() {
     })
     await ensureDatabaseDefaults()
     setSelectedId(undefined)
+    setSearchedPlace(undefined)
     setActiveMapId(undefined)
+    clearRoute()
     setSheet('none')
     showToast('MapVenture has been reset.')
-  }, [showToast])
+  }, [clearRoute, showToast])
 
   const install = useCallback(async () => {
     if (!installPrompt) return
@@ -494,12 +676,16 @@ export default function App() {
         features={visibleFeatures}
         categories={categories}
         selectedFeature={selectedFeature}
+        searchPlace={searchedPlace}
+        route={routePlan}
         survey={survey}
         geoFix={geo.fix}
         settings={settings}
         editableGeometry={editorDraft?.geometry}
         editingGeometry={editingGeometry}
         focusToken={focusToken}
+        searchFocusToken={searchFocusToken}
+        routeFocusToken={routeFocusToken}
         locationFocusToken={locationFocusToken}
         onSelect={selectFeature}
         onLongPress={(position) => createDraft('place', pointGeometry(position))}
@@ -513,16 +699,21 @@ export default function App() {
       <SearchBar
         value={query}
         activeMapName={activeFieldMap?.name}
-        onChange={setQuery}
+        searching={placeSearchLoading}
+        onChange={(value) => {
+          setQuery(value)
+          if (!value) {
+            placeSearchRequestRef.current += 1
+            setPlaceSearchLoading(false)
+            setPlaceSearchError(undefined)
+            setPlaceResults([])
+            setSearchedPlace(undefined)
+          }
+        }}
+        onSubmit={() => void submitPlaceSearch()}
         onOpenSaved={() => setSheet('saved')}
         onLeaveMap={leaveFieldMap}
       />
-
-      {query && (
-        <button className="search-result-count" onClick={() => setSheet('saved')}>
-          {visibleFeatures.length} {visibleFeatures.length === 1 ? 'result' : 'results'}
-        </button>
-      )}
 
       {sheet === 'none' && !query && !editingGeometry && (
         <MoonCorner onOpen={() => setSheet('moon')} />
@@ -537,10 +728,23 @@ export default function App() {
         </button>
       </div>
 
-      {allFeatures.length === 0 && sheet === 'none' && !survey && (
+      {allFeatures.length === 0 && !searchedPlace && !routePlan && sheet === 'none' && !survey && (
         <StartMapButton
           busy={startingMap}
           onStart={() => void startMap()}
+        />
+      )}
+
+      {routePlan && sheet === 'none' && !editingGeometry && (
+        <RouteChip
+          route={routePlan}
+          units={settings.units}
+          onOpen={() => {
+            setRouteDestination(routePlan.destination)
+            setRouteMode(routePlan.mode)
+            setSheet('route')
+          }}
+          onClear={clearRoute}
         />
       )}
 
@@ -593,6 +797,77 @@ export default function App() {
             Done
           </button>
         </div>
+      )}
+
+      {sheet === 'search' && (
+        <BottomSheet
+          title={`Search “${query.trim()}”`}
+          eyebrow="Saved and real-world places"
+          onClose={() => setSheet('none')}
+          roomy
+        >
+          <PlaceSearchSheet
+            query={query.trim()}
+            savedResults={visibleFeatures}
+            placeResults={placeResults}
+            loading={placeSearchLoading}
+            error={placeSearchError}
+            onRetry={() => void submitPlaceSearch()}
+            onSelectSaved={(feature) => selectFeature(feature.id)}
+            onSelectPlace={previewPlace}
+          />
+        </BottomSheet>
+      )}
+
+      {sheet === 'place' && searchedPlace && (
+        <BottomSheet
+          title={searchedPlace.name}
+          eyebrow="Search result"
+          onClose={() => setSheet('none')}
+          roomy
+        >
+          <SearchPlaceDetail
+            place={searchedPlace}
+            onSave={() => createDraft(
+              'place',
+              pointGeometry(searchedPlace.position),
+              {
+                name: searchedPlace.name,
+                description: searchedPlace.address,
+                returnTo: 'place'
+              }
+            )}
+            onNavigate={(mode) => openNavigation(routeEndpointForPlace(searchedPlace), mode)}
+          />
+        </BottomSheet>
+      )}
+
+      {sheet === 'route' && (
+        <BottomSheet
+          title="Directions"
+          eyebrow="In-app navigation"
+          onClose={() => setSheet('none')}
+          roomy
+        >
+          <RouteSheet
+            points={routePoints}
+            destination={routeDestination}
+            mode={routeMode}
+            route={routePlan}
+            loading={routeLoading}
+            error={routeError}
+            units={settings.units}
+            onModeChange={setRouteMode}
+            onDestinationChange={(destination) => {
+              clearRoute()
+              setRouteDestination(destination)
+            }}
+            onBuild={(originId, destination, mode) => {
+              void buildNavigation(originId, destination, mode)
+            }}
+            onClear={clearRoute}
+          />
+        </BottomSheet>
       )}
 
       {sheet === 'moon' && (
@@ -726,6 +1001,7 @@ export default function App() {
               showToast('Visit recorded.', 'success')
             }}
             onOpenFieldMap={() => openFieldMap(selectedFeature)}
+            onNavigate={(mode) => openNavigation(routeEndpointForFeature(selectedFeature), mode)}
           />
         </BottomSheet>
       )}

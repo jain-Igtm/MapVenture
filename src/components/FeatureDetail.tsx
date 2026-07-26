@@ -8,15 +8,13 @@ import {
   Route,
   Shapes
 } from 'lucide-react'
-import type { Category, DistanceUnit, MapFeature } from '../types'
+import type { Category, DistanceUnit, MapFeature, TravelMode } from '../types'
 import {
-  destinationForGeometry,
   formatArea,
   formatDistance,
   geometryAreaSquareMeters,
   geometryLengthMeters
 } from '../lib/geo'
-import { openExternalUrl } from '../lib/platform'
 
 interface FeatureDetailProps {
   feature: MapFeature
@@ -26,15 +24,7 @@ interface FeatureDetailProps {
   onEdit: () => void
   onVisit: () => void
   onOpenFieldMap: () => void
-}
-
-async function openNavigation(feature: MapFeature, mode: 'driving' | 'walking') {
-  const [longitude, latitude] = destinationForGeometry(feature.geometry)
-  const url = new URL('https://www.google.com/maps/dir/')
-  url.searchParams.set('api', '1')
-  url.searchParams.set('destination', `${latitude},${longitude}`)
-  url.searchParams.set('travelmode', mode)
-  await openExternalUrl(url.toString())
+  onNavigate: (mode: TravelMode) => void
 }
 
 export function FeatureDetail({
@@ -44,7 +34,8 @@ export function FeatureDetail({
   childCount,
   onEdit,
   onVisit,
-  onOpenFieldMap
+  onOpenFieldMap,
+  onNavigate
 }: FeatureDetailProps) {
   const distance = geometryLengthMeters(feature.geometry)
   const area = geometryAreaSquareMeters(feature.geometry)
@@ -114,11 +105,11 @@ export function FeatureDetail({
       )}
 
       <div className="detail-actions">
-        <button className="action-tile action-tile--primary" onClick={() => void openNavigation(feature, 'driving')}>
+        <button className="action-tile action-tile--primary" onClick={() => onNavigate('driving')}>
           <Car size={21} />
           <span>Drive</span>
         </button>
-        <button className="action-tile" onClick={() => void openNavigation(feature, 'walking')}>
+        <button className="action-tile" onClick={() => onNavigate('walking')}>
           <Footprints size={21} />
           <span>Walk</span>
         </button>
