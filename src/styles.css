@@ -1790,6 +1790,12 @@ button:disabled {
   background: var(--accent);
 }
 
+.category-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .category-list {
   display: flex;
   flex-direction: column;
@@ -1909,7 +1915,6 @@ button:disabled {
 
 .category-create {
   display: flex;
-  margin-top: 24px;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 22px;
@@ -1991,9 +1996,7 @@ button:disabled {
   gap: 14px;
 }
 
-.install-card,
-.offline-card,
-.privacy-card {
+.install-card {
   display: flex;
   width: 100%;
   align-items: flex-start;
@@ -2011,9 +2014,7 @@ button:disabled {
     var(--accent);
 }
 
-.install-card > span,
-.offline-card > span,
-.privacy-card > span {
+.install-card > span {
   display: grid;
   flex: 0 0 auto;
   width: 42px;
@@ -2023,9 +2024,7 @@ button:disabled {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.install-card > div,
-.offline-card > div,
-.privacy-card > div {
+.install-card > div {
   display: flex;
   min-width: 0;
   flex: 1 1 auto;
@@ -2033,15 +2032,11 @@ button:disabled {
   gap: 3px;
 }
 
-.install-card strong,
-.offline-card strong,
-.privacy-card strong {
+.install-card strong {
   font-size: 13px;
 }
 
-.install-card small,
-.offline-card p,
-.privacy-card p {
+.install-card small {
   margin: 0;
   color: color-mix(in srgb, currentColor 72%, transparent);
   font-size: 10px;
@@ -2144,6 +2139,15 @@ button:disabled {
   font-weight: 600;
 }
 
+.settings-link--categories {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.settings-link--categories > span {
+  font-weight: 760;
+}
+
 .data-summary {
   display: grid;
   min-height: 66px;
@@ -2165,23 +2169,6 @@ button:disabled {
   color: var(--ink);
   font-size: 19px;
   letter-spacing: -0.03em;
-}
-
-.offline-card,
-.privacy-card {
-  border: 1px solid var(--line);
-  color: var(--ink-soft);
-  background: var(--surface-muted);
-}
-
-.offline-card > span {
-  color: var(--warm);
-  background: var(--warm-soft);
-}
-
-.privacy-card > span {
-  color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .clear-data-button {

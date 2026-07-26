@@ -12,7 +12,6 @@ import {
   Trash2,
   Upload
 } from 'lucide-react'
-import { isNativeApp } from '../lib/platform'
 import type { AppSettings } from '../types'
 
 interface SettingsSheetProps {
@@ -87,13 +86,6 @@ export function SettingsSheet({
       </section>
 
       <section className="settings-group">
-        <button className="settings-link" onClick={onOpenCategories}>
-          <span><Tags size={19} /> Categories and layers</span>
-          <ChevronRight size={19} />
-        </button>
-      </section>
-
-      <section className="settings-group">
         <div className="settings-group-title">
           <Database size={17} />
           Your data
@@ -102,6 +94,10 @@ export function SettingsSheet({
           <span><strong>{featureCount}</strong> mapped features</span>
           <span><strong>{photoCount}</strong> photographs</span>
         </div>
+        <button className="settings-link settings-link--categories" onClick={onOpenCategories}>
+          <span><Tags size={19} /> Create and manage categories</span>
+          <ChevronRight size={19} />
+        </button>
         <button className="settings-link" onClick={onExportBackup}>
           <span><ArchiveRestore size={19} /> Complete backup</span>
           <small>Includes photographs</small>
@@ -126,29 +122,6 @@ export function SettingsSheet({
             event.target.value = ''
           }}
         />
-      </section>
-
-      <section className="offline-card">
-        <span><HardDriveDownload size={20} /></span>
-        <div>
-          <strong>{isNativeApp ? 'Your saved map stays on this phone' : 'Recently viewed maps work offline'}</strong>
-          <p>
-            {isNativeApp
-              ? 'Saved places, trails, notes, and photos remain available without service. The background map needs a connection when its tiles are not already cached.'
-              : 'The app and recently loaded map tiles are cached automatically. Saved places, trails, notes, and photos always remain available.'}
-          </p>
-        </div>
-      </section>
-
-      <section className="privacy-card">
-        <span><Database size={20} /></span>
-        <div>
-          <strong>Private by default</strong>
-          <p>
-            Your map data stays in this device’s {isNativeApp ? 'private app database' : 'browser database'}.
-            {' '}It is never committed to the public GitHub repository.
-          </p>
-        </div>
       </section>
 
       <button className="clear-data-button" onClick={onClearData}>

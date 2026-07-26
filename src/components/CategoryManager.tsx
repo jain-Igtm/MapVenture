@@ -36,44 +36,6 @@ export function CategoryManager({
 
   return (
     <div className="category-manager">
-      <div className="category-list">
-        {categories.length === 0 && (
-          <div className="category-empty">
-            <strong>No categories yet</strong>
-            <span>Create your first custom category below.</span>
-          </div>
-        )}
-        {categories.map((category) => (
-          <div key={category.id} className="category-editor-row">
-            <button
-              className="category-visibility"
-              onClick={() => onUpdate({ ...category, visible: !category.visible })}
-              aria-label={category.visible ? `Hide ${category.name}` : `Show ${category.name}`}
-            >
-              {category.visible ? <Eye size={18} /> : <EyeOff size={18} />}
-            </button>
-            <span className="category-symbol" style={{ backgroundColor: category.color }}>{category.icon}</span>
-            <input
-              type="text"
-              value={category.name}
-              onChange={(event) => onUpdate({ ...category, name: event.target.value })}
-              aria-label="Category name"
-            />
-            <label className="category-row-color" title={`Change ${category.name} color`}>
-              <input
-                type="color"
-                value={category.color}
-                onChange={(event) => onUpdate({ ...category, color: event.target.value })}
-                aria-label={`Choose ${category.name} color`}
-              />
-            </label>
-            <button className="category-delete" onClick={() => onDelete(category)} aria-label={`Delete ${category.name}`}>
-              <Trash2 size={17} />
-            </button>
-          </div>
-        ))}
-      </div>
-
       <div className="category-create">
         <span className="eyebrow">New category</span>
         <input
@@ -112,6 +74,44 @@ export function CategoryManager({
           <Plus size={19} />
           Add category
         </button>
+      </div>
+
+      <div className="category-list">
+        {categories.length === 0 && (
+          <div className="category-empty">
+            <strong>No categories yet</strong>
+            <span>Use the form above to create your first custom category.</span>
+          </div>
+        )}
+        {categories.map((category) => (
+          <div key={category.id} className="category-editor-row">
+            <button
+              className="category-visibility"
+              onClick={() => onUpdate({ ...category, visible: !category.visible })}
+              aria-label={category.visible ? `Hide ${category.name}` : `Show ${category.name}`}
+            >
+              {category.visible ? <Eye size={18} /> : <EyeOff size={18} />}
+            </button>
+            <span className="category-symbol" style={{ backgroundColor: category.color }}>{category.icon}</span>
+            <input
+              type="text"
+              value={category.name}
+              onChange={(event) => onUpdate({ ...category, name: event.target.value })}
+              aria-label="Category name"
+            />
+            <label className="category-row-color" title={`Change ${category.name} color`}>
+              <input
+                type="color"
+                value={category.color}
+                onChange={(event) => onUpdate({ ...category, color: event.target.value })}
+                aria-label={`Choose ${category.name} color`}
+              />
+            </label>
+            <button className="category-delete" onClick={() => onDelete(category)} aria-label={`Delete ${category.name}`}>
+              <Trash2 size={17} />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   )
