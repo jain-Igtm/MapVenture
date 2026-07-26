@@ -1,4 +1,5 @@
 import type { FeatureCollection } from 'geojson'
+import { LEGACY_CATEGORY_IDS } from '../data'
 import { db } from '../db'
 import type { AppSettings, Category, MapFeature, MapVentureBackup } from '../types'
 import { featureToGeoJSON } from './geo'
@@ -92,7 +93,7 @@ function importGeoJSON(value: unknown): MapFeature[] {
         kind,
         name: String(properties.name ?? `Imported ${kind} ${index + 1}`),
         description: String(properties.description ?? ''),
-        categoryId: String(properties.categoryId ?? 'uncategorized'),
+        categoryId: String(properties.categoryId ?? ''),
         tags: Array.isArray(properties.tags) ? properties.tags.map(String) : [],
         geometry: feature.geometry,
         photos: [],
@@ -107,12 +108,21 @@ export async function importDataFile(file: File): Promise<{ features: number; ca
   const value = JSON.parse(await file.text()) as unknown
 
   if (isBackup(value)) {
+    const legacyCategoryIds = new Set(LEGACY_CATEGORY_IDS)
+    const customCategories = value.categories.filter(
+      (category) => !legacyCategoryIds.has(category.id)
+    )
+    const importedFeatures = value.features.map((feature) =>
+      legacyCategoryIds.has(feature.categoryId)
+        ? { ...feature, categoryId: '' }
+        : feature
+    )
     await db.transaction('rw', db.categories, db.features, db.settings, async () => {
-      await db.categories.bulkPut(value.categories as Category[])
-      await db.features.bulkPut(value.features as MapFeature[])
+      await db.categories.bulkPut(customCategories as Category[])
+      await db.features.bulkPut(importedFeatures as MapFeature[])
       await db.settings.put(value.settings as AppSettings)
     })
-    return { features: value.features.length, categories: value.categories.length }
+    return { features: importedFeatures.length, categories: customCategories.length }
   }
 
   const imported = importGeoJSON(value)

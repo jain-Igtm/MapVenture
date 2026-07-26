@@ -6,7 +6,6 @@ import {
   Download,
   FileJson,
   HardDriveDownload,
-  Map,
   Palette,
   Smartphone,
   Tags,
@@ -75,17 +74,6 @@ export function SettingsSheet({
             </button>
           ))}
         </div>
-        <label className="settings-select">
-          <span><Map size={18} /> Map appearance</span>
-          <select
-            value={settings.mapStyle}
-            onChange={(event) => patch({ mapStyle: event.target.value as AppSettings['mapStyle'] })}
-          >
-            <option value="liberty">Outdoors</option>
-            <option value="bright">Bright</option>
-            <option value="positron">Quiet</option>
-          </select>
-        </label>
         <label className="settings-select">
           <span><HardDriveDownload size={18} /> Distance units</span>
           <select

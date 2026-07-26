@@ -162,19 +162,29 @@ button:disabled {
   touch-action: none;
 }
 
-.maplibregl-map {
+.leaflet-container {
   font-family: inherit;
+  background: #dce5dd;
 }
 
-.maplibregl-ctrl-attrib {
+.leaflet-control-attribution {
   margin-top: calc(var(--app-safe-top) + 72px) !important;
   margin-right: 7px !important;
+  padding: 2px 6px !important;
   border-radius: 10px !important;
   opacity: 0.62;
+  font-size: 9px !important;
 }
 
-.maplibregl-ctrl-attrib.maplibregl-compact {
-  min-height: 24px;
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 8;
+}
+
+.location-marker-shell,
+.vertex-marker-shell {
+  border: 0;
+  background: transparent;
 }
 
 .location-marker {
@@ -216,6 +226,7 @@ button:disabled {
 }
 
 .vertex-marker {
+  display: block;
   width: 24px;
   height: 24px;
   padding: 0;
@@ -1785,6 +1796,30 @@ button:disabled {
   gap: 6px;
 }
 
+.category-empty {
+  display: flex;
+  min-height: 105px;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 17px;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+  text-align: center;
+  background: var(--surface-muted);
+}
+
+.category-empty strong {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.category-empty span {
+  font-size: 10px;
+}
+
 .category-editor-row {
   display: flex;
   min-height: 58px;
@@ -1823,7 +1858,7 @@ button:disabled {
   font-weight: 850;
 }
 
-.category-editor-row input {
+.category-editor-row input[type="text"] {
   min-width: 0;
   height: 42px;
   flex: 1 1 auto;
@@ -1838,6 +1873,38 @@ button:disabled {
 
 .category-editor-row .category-delete {
   color: var(--danger);
+}
+
+.category-editor-row .category-row-color {
+  display: grid;
+  flex: 0 0 auto;
+  width: 39px;
+  height: 39px;
+  overflow: hidden;
+  border: 2px solid var(--surface-raised);
+  border-radius: 13px;
+  place-items: center;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.category-row-color input[type="color"],
+.color-wheel-picker input[type="color"] {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+.category-row-color input[type="color"]::-webkit-color-swatch-wrapper,
+.color-wheel-picker input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.category-row-color input[type="color"]::-webkit-color-swatch,
+.color-wheel-picker input[type="color"]::-webkit-color-swatch {
+  border: 0;
 }
 
 .category-create {
@@ -1882,19 +1949,40 @@ button:disabled {
   background: var(--accent-soft);
 }
 
-.color-picker button {
-  width: 31px;
-  height: 31px;
-  padding: 0;
-  border: 4px solid var(--surface-muted);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--line);
+.color-wheel-picker {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--surface-raised);
 }
 
-.color-picker button.is-selected {
-  box-shadow:
-    0 0 0 2px var(--surface-muted),
-    0 0 0 4px currentColor;
+.color-wheel-picker > input {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 15px;
+}
+
+.color-wheel-picker > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.color-wheel-picker strong {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.color-wheel-picker small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
 }
 
 .settings-sheet {

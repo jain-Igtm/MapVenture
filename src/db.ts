@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from './data'
+import { DEFAULT_SETTINGS, LEGACY_CATEGORY_IDS } from './data'
 import type { AppSettings, Category, MapFeature } from './types'
 
 class MapVentureDatabase extends Dexie {
@@ -15,8 +15,20 @@ class MapVentureDatabase extends Dexie {
       settings: 'id'
     })
 
+    this.version(2).stores({
+      categories: 'id, name, order, visible',
+      features: 'id, kind, categoryId, mapId, isFieldMap, name, createdAt, updatedAt, *tags',
+      settings: 'id'
+    }).upgrade(async (transaction) => {
+      await transaction.table('categories').bulkDelete(LEGACY_CATEGORY_IDS)
+      await transaction
+        .table('features')
+        .where('categoryId')
+        .anyOf(LEGACY_CATEGORY_IDS)
+        .modify({ categoryId: '' })
+    })
+
     this.on('populate', async () => {
-      await this.categories.bulkAdd(DEFAULT_CATEGORIES)
       await this.settings.add(DEFAULT_SETTINGS)
     })
   }
@@ -25,11 +37,6 @@ class MapVentureDatabase extends Dexie {
 export const db = new MapVentureDatabase()
 
 export async function ensureDatabaseDefaults() {
-  const categoryCount = await db.categories.count()
-  if (categoryCount === 0) {
-    await db.categories.bulkPut(DEFAULT_CATEGORIES)
-  }
-
   const settings = await db.settings.get('settings')
   if (!settings) {
     await db.settings.put(DEFAULT_SETTINGS)

@@ -65,30 +65,32 @@ export function SavedSheet({
         </section>
       )}
 
-      <section className="sheet-section">
-        <div className="section-label-row">
-          <span>Layers</span>
-          <small>Tap to show or hide</small>
-        </div>
-        <div className="category-layer-scroll">
-          {categories.map((category) => {
-            const count = visibleFeatures.filter((feature) => feature.categoryId === category.id).length
-            return (
-              <button
-                key={category.id}
-                className={category.visible ? 'is-visible' : ''}
-                onClick={() => onToggleCategory(category)}
-                style={{ '--category-color': category.color } as React.CSSProperties}
-              >
-                {category.visible ? <Eye size={15} /> : <EyeOff size={15} />}
-                <span>{category.icon}</span>
-                <strong>{category.name}</strong>
-                <small>{count}</small>
-              </button>
-            )
-          })}
-        </div>
-      </section>
+      {categories.length > 0 && (
+        <section className="sheet-section">
+          <div className="section-label-row">
+            <span>Layers</span>
+            <small>Tap to show or hide</small>
+          </div>
+          <div className="category-layer-scroll">
+            {categories.map((category) => {
+              const count = visibleFeatures.filter((feature) => feature.categoryId === category.id).length
+              return (
+                <button
+                  key={category.id}
+                  className={category.visible ? 'is-visible' : ''}
+                  onClick={() => onToggleCategory(category)}
+                  style={{ '--category-color': category.color } as React.CSSProperties}
+                >
+                  {category.visible ? <Eye size={15} /> : <EyeOff size={15} />}
+                  <span>{category.icon}</span>
+                  <strong>{category.name}</strong>
+                  <small>{count}</small>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="sheet-section">
         <div className="section-label-row">
@@ -102,13 +104,13 @@ export function SavedSheet({
               const Icon = featureIcon(feature)
               return (
                 <button key={feature.id} onClick={() => onSelect(feature)}>
-                  <span className="saved-list__icon" style={{ backgroundColor: category?.color }}>
+                  <span className="saved-list__icon" style={{ backgroundColor: category?.color ?? '#87958f' }}>
                     <Icon size={18} />
                   </span>
                   <span className="saved-list__copy">
                     <strong>{feature.name}</strong>
                     <small>
-                      {category?.name ?? 'Uncategorized'}
+                      {category?.name ?? 'No category'}
                       {feature.tags.length > 0 ? ` · ${feature.tags.slice(0, 2).join(', ')}` : ''}
                     </small>
                   </span>

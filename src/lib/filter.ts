@@ -6,13 +6,13 @@ export function filterMapFeatures(
   query: string,
   activeMapId?: string
 ): MapFeature[] {
-  const visibleCategoryIds = new Set(
-    categories.filter((category) => category.visible).map((category) => category.id)
+  const hiddenCategoryIds = new Set(
+    categories.filter((category) => !category.visible).map((category) => category.id)
   )
   const normalizedQuery = query.trim().toLocaleLowerCase()
 
   return features.filter((feature) => {
-    if (!visibleCategoryIds.has(feature.categoryId)) return false
+    if (feature.categoryId && hiddenCategoryIds.has(feature.categoryId)) return false
     if (activeMapId && feature.id !== activeMapId && feature.mapId !== activeMapId) return false
     if (!normalizedQuery) return true
     const category = categories.find((candidate) => candidate.id === feature.categoryId)

@@ -117,6 +117,16 @@ export function FeatureEditor({
       <fieldset className="category-picker">
         <legend>Category</legend>
         <div className="category-scroll">
+          <button
+            type="button"
+            className={feature.categoryId ? '' : 'is-selected'}
+            style={{ '--category-color': '#87958f' } as React.CSSProperties}
+            onClick={() => patch({ categoryId: '' })}
+          >
+            <span>•</span>
+            No category
+            {!feature.categoryId && <Check size={15} />}
+          </button>
           {categories.map((category) => (
             <button
               type="button"

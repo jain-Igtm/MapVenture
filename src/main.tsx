@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Capacitor } from '@capacitor/core'
-import 'maplibre-gl/dist/maplibre-gl.css'
+import 'leaflet/dist/leaflet.css'
 import './styles.css'
 import App from './App'
 

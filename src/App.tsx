@@ -64,7 +64,7 @@ function newFeature(
     kind,
     name: '',
     description: '',
-    categoryId: kind === 'trail' ? 'trails' : kind === 'area' ? 'nature' : 'uncategorized',
+    categoryId: '',
     tags: [],
     geometry,
     photos: [],
@@ -423,11 +423,11 @@ export default function App() {
   }, [])
 
   const deleteCategory = useCallback(async (category: Category) => {
-    if (!window.confirm(`Delete “${category.name}”? Its saved features will become Uncategorized.`)) return
+    if (!window.confirm(`Delete “${category.name}”? Its saved features will keep their data and show as having no category.`)) return
     await db.transaction('rw', db.categories, db.features, async () => {
       const affected = await db.features.where('categoryId').equals(category.id).toArray()
       await db.features.bulkPut(
-        affected.map((feature) => ({ ...feature, categoryId: 'uncategorized', updatedAt: Date.now() }))
+        affected.map((feature) => ({ ...feature, categoryId: '', updatedAt: Date.now() }))
       )
       await db.categories.delete(category.id)
     })
