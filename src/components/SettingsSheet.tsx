@@ -13,6 +13,7 @@ import {
   Trash2,
   Upload
 } from 'lucide-react'
+import { isNativeApp } from '../lib/platform'
 import type { AppSettings } from '../types'
 
 interface SettingsSheetProps {
@@ -142,8 +143,12 @@ export function SettingsSheet({
       <section className="offline-card">
         <span><HardDriveDownload size={20} /></span>
         <div>
-          <strong>Recently viewed maps work offline</strong>
-          <p>The app and recently loaded map tiles are cached automatically. Saved places, trails, notes, and photos always remain available.</p>
+          <strong>{isNativeApp ? 'Your saved map stays on this phone' : 'Recently viewed maps work offline'}</strong>
+          <p>
+            {isNativeApp
+              ? 'Saved places, trails, notes, and photos remain available without service. The background map needs a connection when its tiles are not already cached.'
+              : 'The app and recently loaded map tiles are cached automatically. Saved places, trails, notes, and photos always remain available.'}
+          </p>
         </div>
       </section>
 
@@ -151,7 +156,10 @@ export function SettingsSheet({
         <span><Database size={20} /></span>
         <div>
           <strong>Private by default</strong>
-          <p>Your map data stays in this device’s browser database. It is never committed to the public GitHub repository.</p>
+          <p>
+            Your map data stays in this device’s {isNativeApp ? 'private app database' : 'browser database'}.
+            {' '}It is never committed to the public GitHub repository.
+          </p>
         </div>
       </section>
 

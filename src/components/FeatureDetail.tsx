@@ -16,6 +16,7 @@ import {
   geometryAreaSquareMeters,
   geometryLengthMeters
 } from '../lib/geo'
+import { openExternalUrl } from '../lib/platform'
 
 interface FeatureDetailProps {
   feature: MapFeature
@@ -27,13 +28,13 @@ interface FeatureDetailProps {
   onOpenFieldMap: () => void
 }
 
-function openNavigation(feature: MapFeature, mode: 'driving' | 'walking') {
+async function openNavigation(feature: MapFeature, mode: 'driving' | 'walking') {
   const [longitude, latitude] = destinationForGeometry(feature.geometry)
   const url = new URL('https://www.google.com/maps/dir/')
   url.searchParams.set('api', '1')
   url.searchParams.set('destination', `${latitude},${longitude}`)
   url.searchParams.set('travelmode', mode)
-  window.open(url.toString(), '_blank', 'noopener,noreferrer')
+  await openExternalUrl(url.toString())
 }
 
 export function FeatureDetail({
@@ -113,11 +114,11 @@ export function FeatureDetail({
       )}
 
       <div className="detail-actions">
-        <button className="action-tile action-tile--primary" onClick={() => openNavigation(feature, 'driving')}>
+        <button className="action-tile action-tile--primary" onClick={() => void openNavigation(feature, 'driving')}>
           <Car size={21} />
           <span>Drive</span>
         </button>
-        <button className="action-tile" onClick={() => openNavigation(feature, 'walking')}>
+        <button className="action-tile" onClick={() => void openNavigation(feature, 'walking')}>
           <Footprints size={21} />
           <span>Walk</span>
         </button>

@@ -19,6 +19,7 @@ phone-first map with infrastructure for creating, categorizing, and notating loc
 - Export standard GeoJSON or import a MapVenture backup/GeoJSON file.
 - Cache the app shell and recently viewed map tiles for partial offline use.
 - Install to an Android home screen and run in a standalone full-screen window.
+- Install a native Android APK with system location permissions and Android backup sharing.
 
 ## Privacy
 
@@ -41,6 +42,31 @@ npm run build
 ```
 
 The production build uses `/MapVenture/` as its base path for GitHub Pages.
+
+Build and synchronize the bundled Android app:
+
+```bash
+npm run sync:android
+cd android
+./gradlew assembleDebug
+```
+
+The Android project uses Capacitor 8, requires Java 21 to compile, and supports Android 7
+(API 24) or newer.
+
+## Android APK
+
+Every pull request builds an installable APK as a GitHub Actions artifact. Every merge to
+`main` also creates a GitHub Release containing `MapVenture.apk` and its SHA-256 checksum.
+
+The latest merged APK is available from:
+
+https://github.com/jain-Igtm/MapVenture/releases/latest/download/MapVenture.apk
+
+The APK and the GitHub Pages version use separate private databases. Export a complete JSON
+backup from one installation before moving data to the other. The current CI build uses
+Android's debug signing mode for personal sideloading; future production updates should use
+one stable release keystore stored in GitHub Actions secrets.
 
 ## Deployment
 

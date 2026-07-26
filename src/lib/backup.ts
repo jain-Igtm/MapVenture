@@ -2,16 +2,7 @@ import type { FeatureCollection } from 'geojson'
 import { db } from '../db'
 import type { AppSettings, Category, MapFeature, MapVentureBackup } from '../types'
 import { featureToGeoJSON } from './geo'
-
-function download(name: string, contents: string, type: string) {
-  const blob = new Blob([contents], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = name
-  link.click()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
+import { saveTextFile } from './platform'
 
 export async function createBackup(): Promise<MapVentureBackup> {
   const [categories, features, settings] = await Promise.all([
@@ -35,7 +26,12 @@ export async function createBackup(): Promise<MapVentureBackup> {
 export async function downloadBackup() {
   const backup = await createBackup()
   const date = backup.exportedAt.slice(0, 10)
-  download(`mapventure-backup-${date}.json`, JSON.stringify(backup, null, 2), 'application/json')
+  await saveTextFile(
+    `mapventure-backup-${date}.json`,
+    JSON.stringify(backup, null, 2),
+    'application/json',
+    'MapVenture backup'
+  )
 }
 
 export async function downloadGeoJSON() {
@@ -55,10 +51,11 @@ export async function downloadGeoJSON() {
       return geo
     })
   }
-  download(
+  await saveTextFile(
     `mapventure-${new Date().toISOString().slice(0, 10)}.geojson`,
     JSON.stringify(collection, null, 2),
-    'application/geo+json'
+    'application/geo+json',
+    'MapVenture GeoJSON'
   )
 }
 

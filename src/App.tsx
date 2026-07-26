@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { App as NativeApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Check,
@@ -84,6 +87,11 @@ function useTheme(settings: AppSettings) {
       document
         .querySelector('meta[name="theme-color"]')
         ?.setAttribute('content', resolved === 'dark' ? '#0b1514' : '#edf1e9')
+      if (Capacitor.isNativePlatform()) {
+        void StatusBar.setStyle({
+          style: resolved === 'dark' ? StatusBarStyle.Dark : StatusBarStyle.Light
+        }).catch(() => undefined)
+      }
     }
     apply()
     media.addEventListener('change', apply)
@@ -245,6 +253,41 @@ export default function App() {
     setQuery('')
     setSheet('none')
   }, [])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+
+    let disposed = false
+    let removeListener: (() => Promise<void>) | undefined
+
+    void NativeApp.addListener('backButton', () => {
+      if (editingGeometry) {
+        setEditingGeometry(false)
+        setSheet('editor')
+      } else if (sheet === 'categories') {
+        setSheet('settings')
+      } else if (sheet === 'editor') {
+        cancelEditor()
+      } else if (sheet !== 'none') {
+        setSheet('none')
+      } else if (activeMapId) {
+        leaveFieldMap()
+      } else {
+        void NativeApp.minimizeApp()
+      }
+    }).then((handle) => {
+      if (disposed) {
+        void handle.remove()
+      } else {
+        removeListener = () => handle.remove()
+      }
+    })
+
+    return () => {
+      disposed = true
+      void removeListener?.()
+    }
+  }, [activeMapId, cancelEditor, editingGeometry, leaveFieldMap, sheet])
 
   const locate = useCallback(async (addPlace = false) => {
     try {
