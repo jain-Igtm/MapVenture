@@ -1,0 +1,86 @@
+import type { Geometry, Position } from 'geojson'
+
+export type FeatureKind = 'place' | 'trail' | 'area'
+export type ThemeMode = 'system' | 'light' | 'dark'
+export type DistanceUnit = 'imperial' | 'metric'
+
+export interface PhotoAsset {
+  id: string
+  name: string
+  type: string
+  dataUrl: string
+  createdAt: number
+}
+
+export interface Category {
+  id: string
+  name: string
+  color: string
+  icon: string
+  visible: boolean
+  order: number
+  createdAt: number
+}
+
+export interface MapFeature {
+  id: string
+  kind: FeatureKind
+  name: string
+  description: string
+  categoryId: string
+  tags: string[]
+  geometry: Geometry
+  photos: PhotoAsset[]
+  mapId?: string
+  isFieldMap?: boolean
+  source: 'manual' | 'gps' | 'import'
+  accuracy?: number
+  visitedAt?: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface AppSettings {
+  id: 'settings'
+  theme: ThemeMode
+  units: DistanceUnit
+  mapStyle: 'liberty' | 'bright' | 'positron'
+  lastCenter?: Position
+  lastZoom?: number
+  installDismissed?: boolean
+}
+
+export interface GeoFix {
+  longitude: number
+  latitude: number
+  accuracy: number
+  altitude: number | null
+  speed: number | null
+  heading: number | null
+  timestamp: number
+}
+
+export interface SurveyState {
+  mode: 'record-trail' | 'record-area' | 'draw-trail' | 'draw-area'
+  coordinates: Position[]
+  startedAt: number
+  paused: boolean
+}
+
+export type SheetName =
+  | 'none'
+  | 'saved'
+  | 'survey'
+  | 'settings'
+  | 'editor'
+  | 'detail'
+  | 'categories'
+
+export interface MapVentureBackup {
+  app: 'MapVenture'
+  version: 1
+  exportedAt: string
+  categories: Category[]
+  features: MapFeature[]
+  settings: AppSettings
+}
