@@ -1,11 +1,11 @@
 # MapVenture
 
-MapVenture is a private, phone-first map for remembering places and building detailed field maps. It is an installable progressive web app designed around a full-screen map, touch controls, and bottom sheets rather than a conventional website layout.
+phone-first map with infrastructure for creating, categorizing, and notating locations via pins. 
 
 ## What it can do
 
-- Save the phone's current location or hold anywhere on the map to add a point.
-- Create unlimited practical custom categories with colors, symbols, and visibility controls.
+- Save current locations or locations on maps.
+- Categorize pins of locations without limitations.
 - Search names, notes, tags, and categories.
 - Attach notes, tags, visit dates, and compressed photographs.
 - Open driving or walking directions in Google Maps.
@@ -22,7 +22,7 @@ MapVenture is a private, phone-first map for remembering places and building det
 
 ## Privacy
 
-All personal map data is stored locally in IndexedDB on the device. GitHub contains only the application code. Location history, notes, photographs, and saved features are never written to the repository.
+All personal map data is stored locally in IndexedDB on user devices. GitHub contains only the application code. Location history, notes, photographs, and saved features are never written to the repository.
 
 Browser storage can be cleared by the device or user, so regular complete backups are recommended.
 
