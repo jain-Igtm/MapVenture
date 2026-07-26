@@ -312,7 +312,12 @@ export default function App() {
     setFieldMapIntent(wantsFieldMap)
     if (mode.startsWith('draw')) {
       setSurvey({ mode, coordinates: [], startedAt: Date.now(), paused: false })
-      setSheet('survey')
+      if (wantsFieldMap) {
+        setSheet('none')
+        showToast('Tap the map to outline your new field map.')
+      } else {
+        setSheet('survey')
+      }
       return
     }
 

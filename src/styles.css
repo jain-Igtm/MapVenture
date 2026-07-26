@@ -1513,6 +1513,17 @@ button:disabled {
   text-align: left;
   color: var(--accent);
   background: var(--accent-soft);
+  touch-action: manipulation;
+  transition:
+    transform 90ms ease,
+    filter 90ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.field-map-cta:active {
+  transform: scale(0.985);
+  filter: brightness(0.94);
 }
 
 .field-map-cta > svg {

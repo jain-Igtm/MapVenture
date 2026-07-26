@@ -161,7 +161,11 @@ export function SurveySheet({
         </button>
       </div>
 
-      <button className="field-map-cta" onClick={() => onStart('draw-area', true)}>
+      <button
+        type="button"
+        className="field-map-cta"
+        onClick={() => onStart('draw-area', true)}
+      >
         <MapPinned size={22} />
         <span>
           <strong>Create a new field map</strong>
