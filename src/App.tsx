@@ -39,6 +39,7 @@ import { CategoryManager } from './components/CategoryManager'
 import { FeatureDetail } from './components/FeatureDetail'
 import { FeatureEditor } from './components/FeatureEditor'
 import { MapCanvas } from './components/MapCanvas'
+import { MoonCorner, MoonPage } from './components/MoonPage'
 import { SavedSheet } from './components/SavedSheet'
 import { SearchBar } from './components/SearchBar'
 import { SettingsSheet } from './components/SettingsSheet'
@@ -509,6 +510,10 @@ export default function App() {
         </button>
       )}
 
+      {sheet === 'none' && !query && !editingGeometry && (
+        <MoonCorner onOpen={() => setSheet('moon')} />
+      )}
+
       <div className="map-actions">
         <button onClick={() => void locate(false)} aria-label="Center on my location">
           <LocateFixed size={21} />
@@ -571,6 +576,12 @@ export default function App() {
             Done
           </button>
         </div>
+      )}
+
+      {sheet === 'moon' && (
+        <BottomSheet title="Moon" eyebrow="Lunar cycle" onClose={() => setSheet('none')} roomy>
+          <MoonPage />
+        </BottomSheet>
       )}
 
       {sheet === 'saved' && (

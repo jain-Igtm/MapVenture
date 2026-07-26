@@ -71,6 +71,7 @@ export type SheetName =
   | 'none'
   | 'saved'
   | 'survey'
+  | 'moon'
   | 'settings'
   | 'editor'
   | 'detail'

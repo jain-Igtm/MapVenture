@@ -346,6 +346,70 @@ button:disabled {
   backdrop-filter: blur(14px);
 }
 
+.moon-corner {
+  position: absolute;
+  z-index: 19;
+  top: calc(var(--app-safe-top) + 78px);
+  left: 14px;
+  display: flex;
+  max-width: min(205px, calc(100% - 96px));
+  min-height: 48px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 11px 6px 7px;
+  border: 1px solid color-mix(in srgb, var(--surface-raised) 42%, var(--line));
+  border-radius: 18px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--small-shadow);
+  text-align: left;
+  touch-action: manipulation;
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.moon-corner:active {
+  transform: scale(0.96);
+}
+
+.moon-corner__glyph {
+  display: grid;
+  flex: 0 0 auto;
+  width: 35px;
+  height: 35px;
+  border-radius: 13px;
+  place-items: center;
+  background: #17201f;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  font-size: 23px;
+  line-height: 1;
+}
+
+.moon-corner__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.moon-corner__copy strong,
+.moon-corner__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moon-corner__copy strong {
+  font-size: 12px;
+  font-weight: 790;
+}
+
+.moon-corner__copy small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 680;
+}
+
 .map-actions {
   position: absolute;
   z-index: 18;
@@ -452,7 +516,7 @@ button:disabled {
   padding: 7px;
   border: 1px solid color-mix(in srgb, var(--surface-raised) 45%, var(--line));
   border-radius: 25px;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: var(--surface);
   box-shadow: var(--shadow);
   backdrop-filter: blur(24px) saturate(1.25);
@@ -610,6 +674,260 @@ button:disabled {
 
 .sheet-section + .sheet-section {
   margin-top: 25px;
+}
+
+.moon-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.moon-hero {
+  position: relative;
+  display: flex;
+  min-height: 156px;
+  overflow: hidden;
+  align-items: center;
+  gap: 20px;
+  padding: 21px;
+  border: 1px solid rgba(240, 222, 170, 0.14);
+  border-radius: 25px;
+  color: #f7f0df;
+  background:
+    radial-gradient(circle at 18% 25%, rgba(255, 240, 191, 0.14), transparent 33%),
+    linear-gradient(145deg, #172421, #0b1514 72%);
+  box-shadow: 0 15px 35px rgba(4, 11, 10, 0.22);
+}
+
+.moon-hero::after {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  right: -70px;
+  bottom: -82px;
+  content: "";
+  box-shadow:
+    0 0 0 22px rgba(255, 255, 255, 0.018),
+    0 0 0 48px rgba(255, 255, 255, 0.012);
+}
+
+.moon-hero__orb {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 14px 32px rgba(0, 0, 0, 0.3);
+  font-size: 66px;
+  line-height: 1;
+}
+
+.moon-hero > div {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.moon-date {
+  display: block;
+  margin-bottom: 4px;
+  color: #b9c8c3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.moon-hero h3 {
+  margin: 0;
+  font-size: clamp(22px, 6vw, 29px);
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.moon-hero p {
+  max-width: 250px;
+  margin: 8px 0 0;
+  color: #b9c8c3;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.moon-stats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.moon-stats article {
+  display: flex;
+  min-height: 87px;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  flex-direction: column;
+  background: var(--surface-muted);
+}
+
+.moon-stats span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.moon-stats strong {
+  color: var(--ink);
+  font-size: 20px;
+  letter-spacing: -0.035em;
+}
+
+.moon-cycle-card,
+.moon-upcoming {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-muted);
+}
+
+.moon-section-heading {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 13px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+}
+
+.moon-section-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.moon-section-heading small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+.moon-cycle-track {
+  position: relative;
+  height: 7px;
+  overflow: visible;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.moon-cycle-track > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--moon-progress);
+  border-radius: inherit;
+  background: linear-gradient(90deg, #547d73, #e8d99f);
+}
+
+.moon-cycle-track > span::after {
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--surface-muted);
+  border-radius: 50%;
+  content: "";
+  background: #f0e2ae;
+  box-shadow: 0 2px 8px rgba(27, 45, 40, 0.25);
+  transform: translateY(-50%);
+}
+
+.moon-cycle-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.moon-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.moon-event-list article {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--surface-raised);
+}
+
+.moon-event__glyph {
+  display: grid;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  place-items: center;
+  background: #17201f;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.moon-event__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.moon-event__copy strong {
+  font-size: 12px;
+}
+
+.moon-event__copy time {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.moon-event-list article > small {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 780;
+}
+
+.moon-footnote {
+  margin: 0 5px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .section-label-row {
