@@ -148,7 +148,7 @@ export function FeatureEditor({
         <textarea
           value={feature.description}
           onChange={(event) => patch({ description: event.target.value })}
-          placeholder="What should you remember here?"
+          placeholder="Notes"
           rows={3}
         />
       </label>
@@ -229,7 +229,7 @@ export function FeatureEditor({
         ) : (
           <button type="button" className="photo-empty" onClick={() => photoInput.current?.click()}>
             <Camera size={21} />
-            <span>Add a visual memory</span>
+            <span>Add photo</span>
           </button>
         )}
       </div>
