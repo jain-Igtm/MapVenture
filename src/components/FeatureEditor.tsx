@@ -148,7 +148,7 @@ export function FeatureEditor({
         <textarea
           value={feature.description}
           onChange={(event) => patch({ description: event.target.value })}
-          placeholder="Notes"
+          placeholder="Add notes"
           rows={3}
         />
       </label>
