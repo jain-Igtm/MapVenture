@@ -292,7 +292,7 @@ export default function App() {
 
   const locate = useCallback(async (addPlace = false) => {
     try {
-      const fix = await geo.locate()
+      const fix = addPlace && geo.fix ? geo.fix : await geo.locate()
       setLocationFocusToken((token) => token + 1)
       if (addPlace) {
         createDraft('place', pointGeometry(fixToPosition(fix)), {
