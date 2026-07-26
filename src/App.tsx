@@ -113,6 +113,7 @@ export default function App() {
   const [editorDraft, setEditorDraft] = useState<MapFeature>()
   const [editorExisting, setEditorExisting] = useState(false)
   const [editorReturnSheet, setEditorReturnSheet] = useState<SheetName>('none')
+  const [categoryReturnSheet, setCategoryReturnSheet] = useState<'settings' | 'editor'>('settings')
   const [editingGeometry, setEditingGeometry] = useState(false)
   const [survey, setSurvey] = useState<SurveyState | null>(null)
   const [fieldMapIntent, setFieldMapIntent] = useState(false)
@@ -265,7 +266,7 @@ export default function App() {
         setEditingGeometry(false)
         setSheet('editor')
       } else if (sheet === 'categories') {
-        setSheet('settings')
+        setSheet(categoryReturnSheet)
       } else if (sheet === 'editor') {
         cancelEditor()
       } else if (sheet !== 'none') {
@@ -287,7 +288,7 @@ export default function App() {
       disposed = true
       void removeListener?.()
     }
-  }, [activeMapId, cancelEditor, editingGeometry, leaveFieldMap, sheet])
+  }, [activeMapId, cancelEditor, categoryReturnSheet, editingGeometry, leaveFieldMap, sheet])
 
   const locate = useCallback(async (addPlace = false) => {
     try {
@@ -636,7 +637,10 @@ export default function App() {
             photoCount={allFeatures.reduce((total, feature) => total + feature.photos.length, 0)}
             installAvailable={Boolean(installPrompt)}
             onChange={updateSettings}
-            onOpenCategories={() => setSheet('categories')}
+            onOpenCategories={() => {
+              setCategoryReturnSheet('settings')
+              setSheet('categories')
+            }}
             onExportBackup={() => void downloadBackup().then(() => showToast('Backup downloaded.', 'success'))}
             onExportGeoJSON={() => void downloadGeoJSON().then(() => showToast('GeoJSON downloaded.', 'success'))}
             onImport={(file) => {
@@ -654,14 +658,21 @@ export default function App() {
         <BottomSheet
           title="Categories"
           eyebrow="Map layers"
-          onClose={() => setSheet('settings')}
+          onClose={() => setSheet(categoryReturnSheet)}
           roomy
         >
           <CategoryManager
             categories={categories}
             onCreate={(category) => {
-              void db.categories.put(category)
-              showToast('Category added.', 'success')
+              void db.categories.put(category).then(() => {
+                if (categoryReturnSheet === 'editor') {
+                  setEditorDraft((draft) => draft
+                    ? { ...draft, categoryId: category.id, updatedAt: Date.now() }
+                    : draft)
+                  setSheet('editor')
+                }
+                showToast('Category added.', 'success')
+              })
             }}
             onUpdate={updateCategory}
             onDelete={(category) => void deleteCategory(category)}
@@ -711,6 +722,10 @@ export default function App() {
             units={settings.units}
             editingGeometry={editingGeometry}
             onChange={setEditorDraft}
+            onCreateCategory={() => {
+              setCategoryReturnSheet('editor')
+              setSheet('categories')
+            }}
             onToggleGeometryEditing={() => {
               setEditingGeometry(true)
               setSheet('none')

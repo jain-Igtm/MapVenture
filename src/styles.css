@@ -831,6 +831,17 @@ button:disabled {
   background: color-mix(in srgb, var(--category-color) 13%, var(--surface-raised));
 }
 
+.category-scroll button.category-create-shortcut {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.category-scroll button.category-create-shortcut > span {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
 .switch-row {
   display: flex;
   min-height: 72px;

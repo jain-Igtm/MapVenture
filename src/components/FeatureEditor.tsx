@@ -5,6 +5,7 @@ import {
   Map as MapIcon,
   MapPin,
   PencilRuler,
+  Plus,
   Route,
   Shapes,
   Trash2,
@@ -26,6 +27,7 @@ interface FeatureEditorProps {
   units: DistanceUnit
   editingGeometry: boolean
   onChange: (feature: MapFeature) => void
+  onCreateCategory: () => void
   onToggleGeometryEditing: () => void
   onSave: () => void
   onCancel: () => void
@@ -45,6 +47,7 @@ export function FeatureEditor({
   units,
   editingGeometry,
   onChange,
+  onCreateCategory,
   onToggleGeometryEditing,
   onSave,
   onCancel,
@@ -126,6 +129,14 @@ export function FeatureEditor({
             <span>•</span>
             No category
             {!feature.categoryId && <Check size={15} />}
+          </button>
+          <button
+            type="button"
+            className="category-create-shortcut"
+            onClick={onCreateCategory}
+          >
+            <span><Plus size={15} /></span>
+            Create category
           </button>
           {categories.map((category) => (
             <button
