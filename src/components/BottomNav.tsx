@@ -1,4 +1,4 @@
-import { Map, MapPinned, Settings2, Waypoints } from 'lucide-react'
+import { Map, MapPinned, MoonStar, Settings2, Waypoints } from 'lucide-react'
 import type { SheetName } from '../types'
 
 interface BottomNavProps {
@@ -10,6 +10,7 @@ const items = [
   { id: 'none' as const, label: 'Map', icon: Map },
   { id: 'saved' as const, label: 'Saved', icon: MapPinned },
   { id: 'survey' as const, label: 'Survey', icon: Waypoints },
+  { id: 'moon' as const, label: 'Moon', icon: MoonStar },
   { id: 'settings' as const, label: 'Settings', icon: Settings2 }
 ]
 

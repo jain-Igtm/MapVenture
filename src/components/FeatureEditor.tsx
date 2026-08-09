@@ -5,6 +5,7 @@ import {
   Map as MapIcon,
   MapPin,
   PencilRuler,
+  Plus,
   Route,
   Shapes,
   Trash2,
@@ -26,6 +27,7 @@ interface FeatureEditorProps {
   units: DistanceUnit
   editingGeometry: boolean
   onChange: (feature: MapFeature) => void
+  onCreateCategory: () => void
   onToggleGeometryEditing: () => void
   onSave: () => void
   onCancel: () => void
@@ -45,6 +47,7 @@ export function FeatureEditor({
   units,
   editingGeometry,
   onChange,
+  onCreateCategory,
   onToggleGeometryEditing,
   onSave,
   onCancel,
@@ -117,6 +120,24 @@ export function FeatureEditor({
       <fieldset className="category-picker">
         <legend>Category</legend>
         <div className="category-scroll">
+          <button
+            type="button"
+            className={feature.categoryId ? '' : 'is-selected'}
+            style={{ '--category-color': '#87958f' } as React.CSSProperties}
+            onClick={() => patch({ categoryId: '' })}
+          >
+            <span>•</span>
+            No category
+            {!feature.categoryId && <Check size={15} />}
+          </button>
+          <button
+            type="button"
+            className="category-create-shortcut"
+            onClick={onCreateCategory}
+          >
+            <span><Plus size={15} /></span>
+            Create category
+          </button>
           {categories.map((category) => (
             <button
               type="button"
@@ -138,7 +159,7 @@ export function FeatureEditor({
         <textarea
           value={feature.description}
           onChange={(event) => patch({ description: event.target.value })}
-          placeholder="What should you remember here?"
+          placeholder="Add notes"
           rows={3}
         />
       </label>
@@ -219,7 +240,7 @@ export function FeatureEditor({
         ) : (
           <button type="button" className="photo-empty" onClick={() => photoInput.current?.click()}>
             <Camera size={21} />
-            <span>Add a visual memory</span>
+            <span>Add photo</span>
           </button>
         )}
       </div>

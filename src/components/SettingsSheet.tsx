@@ -6,7 +6,6 @@ import {
   Download,
   FileJson,
   HardDriveDownload,
-  Map,
   Palette,
   Smartphone,
   Tags,
@@ -75,17 +74,6 @@ export function SettingsSheet({
           ))}
         </div>
         <label className="settings-select">
-          <span><Map size={18} /> Map appearance</span>
-          <select
-            value={settings.mapStyle}
-            onChange={(event) => patch({ mapStyle: event.target.value as AppSettings['mapStyle'] })}
-          >
-            <option value="liberty">Outdoors</option>
-            <option value="bright">Bright</option>
-            <option value="positron">Quiet</option>
-          </select>
-        </label>
-        <label className="settings-select">
           <span><HardDriveDownload size={18} /> Distance units</span>
           <select
             value={settings.units}
@@ -98,13 +86,6 @@ export function SettingsSheet({
       </section>
 
       <section className="settings-group">
-        <button className="settings-link" onClick={onOpenCategories}>
-          <span><Tags size={19} /> Categories and layers</span>
-          <ChevronRight size={19} />
-        </button>
-      </section>
-
-      <section className="settings-group">
         <div className="settings-group-title">
           <Database size={17} />
           Your data
@@ -113,6 +94,10 @@ export function SettingsSheet({
           <span><strong>{featureCount}</strong> mapped features</span>
           <span><strong>{photoCount}</strong> photographs</span>
         </div>
+        <button className="settings-link settings-link--categories" onClick={onOpenCategories}>
+          <span><Tags size={19} /> Create and manage categories</span>
+          <ChevronRight size={19} />
+        </button>
         <button className="settings-link" onClick={onExportBackup}>
           <span><ArchiveRestore size={19} /> Complete backup</span>
           <small>Includes photographs</small>
@@ -137,22 +122,6 @@ export function SettingsSheet({
             event.target.value = ''
           }}
         />
-      </section>
-
-      <section className="offline-card">
-        <span><HardDriveDownload size={20} /></span>
-        <div>
-          <strong>Recently viewed maps work offline</strong>
-          <p>The app and recently loaded map tiles are cached automatically. Saved places, trails, notes, and photos always remain available.</p>
-        </div>
-      </section>
-
-      <section className="privacy-card">
-        <span><Database size={20} /></span>
-        <div>
-          <strong>Private by default</strong>
-          <p>Your map data stays in this device’s browser database. It is never committed to the public GitHub repository.</p>
-        </div>
       </section>
 
       <button className="clear-data-button" onClick={onClearData}>

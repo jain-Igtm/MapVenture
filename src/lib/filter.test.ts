@@ -26,12 +26,23 @@ const features = [
   feature({ id: 'park', name: 'Delaware Park', kind: 'area', isFieldMap: true }),
   feature({ id: 'bench', name: 'Quiet bench', mapId: 'park', tags: ['sunset'] }),
   feature({ id: 'cafe', name: 'Coffee stop', description: 'Warm drinks' }),
+  feature({ id: 'loose', name: 'Loose pin', categoryId: '' }),
   feature({ id: 'secret', name: 'Hidden feature', categoryId: 'hidden' })
 ]
 
 describe('feature filtering', () => {
   it('removes hidden category layers', () => {
-    expect(filterMapFeatures(features, categories, '')).toHaveLength(3)
+    expect(filterMapFeatures(features, categories, '')).toHaveLength(4)
+  })
+
+  it('keeps features without a category visible', () => {
+    expect(filterMapFeatures(features, [], '').map((item) => item.id)).toEqual([
+      'park',
+      'bench',
+      'cafe',
+      'loose',
+      'secret'
+    ])
   })
 
   it('focuses a field map on its boundary and assigned features', () => {

@@ -1,17 +1,9 @@
 import type { FeatureCollection } from 'geojson'
+import { LEGACY_CATEGORY_IDS } from '../data'
 import { db } from '../db'
 import type { AppSettings, Category, MapFeature, MapVentureBackup } from '../types'
 import { featureToGeoJSON } from './geo'
-
-function download(name: string, contents: string, type: string) {
-  const blob = new Blob([contents], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = name
-  link.click()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
+import { saveTextFile } from './platform'
 
 export async function createBackup(): Promise<MapVentureBackup> {
   const [categories, features, settings] = await Promise.all([
@@ -35,7 +27,12 @@ export async function createBackup(): Promise<MapVentureBackup> {
 export async function downloadBackup() {
   const backup = await createBackup()
   const date = backup.exportedAt.slice(0, 10)
-  download(`mapventure-backup-${date}.json`, JSON.stringify(backup, null, 2), 'application/json')
+  await saveTextFile(
+    `mapventure-backup-${date}.json`,
+    JSON.stringify(backup, null, 2),
+    'application/json',
+    'MapVenture backup'
+  )
 }
 
 export async function downloadGeoJSON() {
@@ -55,10 +52,11 @@ export async function downloadGeoJSON() {
       return geo
     })
   }
-  download(
+  await saveTextFile(
     `mapventure-${new Date().toISOString().slice(0, 10)}.geojson`,
     JSON.stringify(collection, null, 2),
-    'application/geo+json'
+    'application/geo+json',
+    'MapVenture GeoJSON'
   )
 }
 
@@ -95,7 +93,7 @@ function importGeoJSON(value: unknown): MapFeature[] {
         kind,
         name: String(properties.name ?? `Imported ${kind} ${index + 1}`),
         description: String(properties.description ?? ''),
-        categoryId: String(properties.categoryId ?? 'uncategorized'),
+        categoryId: String(properties.categoryId ?? ''),
         tags: Array.isArray(properties.tags) ? properties.tags.map(String) : [],
         geometry: feature.geometry,
         photos: [],
@@ -110,12 +108,21 @@ export async function importDataFile(file: File): Promise<{ features: number; ca
   const value = JSON.parse(await file.text()) as unknown
 
   if (isBackup(value)) {
+    const legacyCategoryIds = new Set(LEGACY_CATEGORY_IDS)
+    const customCategories = value.categories.filter(
+      (category) => !legacyCategoryIds.has(category.id)
+    )
+    const importedFeatures = value.features.map((feature) =>
+      legacyCategoryIds.has(feature.categoryId)
+        ? { ...feature, categoryId: '' }
+        : feature
+    )
     await db.transaction('rw', db.categories, db.features, db.settings, async () => {
-      await db.categories.bulkPut(value.categories as Category[])
-      await db.features.bulkPut(value.features as MapFeature[])
+      await db.categories.bulkPut(customCategories as Category[])
+      await db.features.bulkPut(importedFeatures as MapFeature[])
       await db.settings.put(value.settings as AppSettings)
     })
-    return { features: value.features.length, categories: value.categories.length }
+    return { features: importedFeatures.length, categories: customCategories.length }
   }
 
   const imported = importGeoJSON(value)

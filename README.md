@@ -6,9 +6,16 @@ phone-first map with infrastructure for creating, categorizing, and notating loc
 
 - Save current locations or locations on maps.
 - Categorize pins of locations without limitations.
-- Search names, notes, tags, and categories.
+- Search saved content plus real-world places, street addresses, and decimal coordinates.
+- Enter latitude and longitude to find, save, or directly guide toward a point without data.
 - Attach notes, tags, visit dates, and compressed photographs.
-- Open driving or walking directions in Google Maps.
+- Build driving or walking routes between the current location, saved points, and searched places without leaving MapVenture.
+- Follow every live GPS fix while navigating instead of leaving the map at the route overview.
+- Switch automatically to a pitched, heading-up driving view with the road ahead and a permanent compass.
+- Show current maneuver progress, distance remaining, off-route status, and a one-tap recenter control.
+- Restore the last built route after an app restart so a data loss does not erase it.
+- Swipe down from any sheet or menu to dismiss it.
+- Track the current lunar phase and upcoming phase changes.
 - Record live GPS trails and boundaries with pause and resume controls.
 - Drop feature pins without ending an active GPS survey.
 - Draw trails and areas manually by tapping the map.
@@ -19,10 +26,22 @@ phone-first map with infrastructure for creating, categorizing, and notating loc
 - Export standard GeoJSON or import a MapVenture backup/GeoJSON file.
 - Cache the app shell and recently viewed map tiles for partial offline use.
 - Install to an Android home screen and run in a standalone full-screen window.
+- Install a native Android APK with system location permissions and Android backup sharing.
 
 ## Privacy
 
 All personal map data is stored locally in IndexedDB on user devices. GitHub contains only the application code. Location history, notes, photographs, and saved features are never written to the repository.
+
+Real-world search sends only a user-submitted search phrase and optional location bias to
+Photon. Building a route sends its two endpoint coordinates and travel mode to Valhalla.
+Coordinate lookup is local and does not contact either service. Live navigation uses foreground
+GPS while the route is active; it does not request Android background-location permission.
+
+New road routes still require a connection because MapVenture does not bundle a regional road
+graph. A route built while connected is saved locally, remains drawn without data, and can be
+resumed after a restart. Entered coordinates also offer clearly labeled direct compass guidance
+when road routing is unavailable. The driving map retains tiles it actually displays, up to a
+bounded cache; it does not bulk-download OpenStreetMap tiles.
 
 Browser storage can be cleared by the device or user, so regular complete backups are recommended.
 
@@ -42,6 +61,30 @@ npm run build
 
 The production build uses `/MapVenture/` as its base path for GitHub Pages.
 
+Build and synchronize the bundled Android app:
+
+```bash
+npm run sync:android
+cd android
+./gradlew assembleDebug
+```
+
+The Android project uses Capacitor 8, requires Java 21 to compile, and supports Android 7
+(API 24) or newer.
+
+## Android APK
+
+Every pull request builds an installable APK as a GitHub Actions artifact. Every merge to
+`main` also creates a GitHub Release containing `MapVenture.apk` and its SHA-256 checksum.
+
+The latest merged APK is available from:
+
+https://github.com/jain-Igtm/MapVenture/releases/latest/download/MapVenture.apk
+
+The APK and the GitHub Pages version use separate private databases. Export a complete JSON
+backup from one installation before moving data to the other. CI preserves one stable personal
+debug signing identity so newer APK artifacts can update an earlier personal installation.
+
 ## Deployment
 
 Merging to `main` runs the verification workflow and the GitHub Pages deployment workflow. Pages must use **GitHub Actions** as its source in the repository settings.
@@ -49,7 +92,10 @@ Merging to `main` runs the verification workflow and the GitHub Pages deployment
 ## Mapping stack
 
 - React and TypeScript
-- MapLibre GL JS with OpenFreeMap styles
+- Leaflet for the interactive field map
+- MapLibre GL with OpenStreetMap raster tiles for the pitched driving view
+- Photon for OpenStreetMap place and address search
+- Valhalla for OpenStreetMap-based driving and walking routes
 - Dexie/IndexedDB for local-first data
 - Turf for geographic measurements
-- Vite PWA and Workbox for installation and caching
+- Vite PWA shell and tile caching

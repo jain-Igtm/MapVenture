@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '../data'
+import { CATEGORY_ICONS, DEFAULT_CUSTOM_CATEGORY_COLOR } from '../data'
 import type { Category } from '../types'
 
 interface CategoryManagerProps {
@@ -17,7 +17,7 @@ export function CategoryManager({
   onDelete
 }: CategoryManagerProps) {
   const [name, setName] = useState('')
-  const [color, setColor] = useState(CATEGORY_COLORS[2])
+  const [color, setColor] = useState(DEFAULT_CUSTOM_CATEGORY_COLOR)
   const [icon, setIcon] = useState(CATEGORY_ICONS[0])
 
   const submit = () => {
@@ -36,31 +36,6 @@ export function CategoryManager({
 
   return (
     <div className="category-manager">
-      <div className="category-list">
-        {categories.map((category) => (
-          <div key={category.id} className="category-editor-row">
-            <button
-              className="category-visibility"
-              onClick={() => onUpdate({ ...category, visible: !category.visible })}
-              aria-label={category.visible ? `Hide ${category.name}` : `Show ${category.name}`}
-            >
-              {category.visible ? <Eye size={18} /> : <EyeOff size={18} />}
-            </button>
-            <span className="category-symbol" style={{ backgroundColor: category.color }}>{category.icon}</span>
-            <input
-              value={category.name}
-              onChange={(event) => onUpdate({ ...category, name: event.target.value })}
-              aria-label="Category name"
-            />
-            {category.id !== 'uncategorized' && (
-              <button className="category-delete" onClick={() => onDelete(category)} aria-label={`Delete ${category.name}`}>
-                <Trash2 size={17} />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
       <div className="category-create">
         <span className="eyebrow">New category</span>
         <input
@@ -82,22 +57,61 @@ export function CategoryManager({
               </button>
             ))}
           </div>
-          <div className="color-picker" aria-label="Choose category color">
-            {CATEGORY_COLORS.map((candidate) => (
-              <button
-                key={candidate}
-                className={candidate === color ? 'is-selected' : ''}
-                style={{ backgroundColor: candidate }}
-                onClick={() => setColor(candidate)}
-                aria-label={`Use ${candidate}`}
-              />
-            ))}
-          </div>
+          <label className="color-wheel-picker">
+            <input
+              type="color"
+              value={color}
+              onChange={(event) => setColor(event.target.value)}
+              aria-label="Choose any category color"
+            />
+            <span>
+              <strong>Choose any color</strong>
+              <small>{color.toUpperCase()}</small>
+            </span>
+          </label>
         </div>
         <button className="primary-button primary-button--wide" onClick={submit} disabled={!name.trim()}>
           <Plus size={19} />
           Add category
         </button>
+      </div>
+
+      <div className="category-list">
+        {categories.length === 0 && (
+          <div className="category-empty">
+            <strong>No categories yet</strong>
+            <span>Use the form above to create your first custom category.</span>
+          </div>
+        )}
+        {categories.map((category) => (
+          <div key={category.id} className="category-editor-row">
+            <button
+              className="category-visibility"
+              onClick={() => onUpdate({ ...category, visible: !category.visible })}
+              aria-label={category.visible ? `Hide ${category.name}` : `Show ${category.name}`}
+            >
+              {category.visible ? <Eye size={18} /> : <EyeOff size={18} />}
+            </button>
+            <span className="category-symbol" style={{ backgroundColor: category.color }}>{category.icon}</span>
+            <input
+              type="text"
+              value={category.name}
+              onChange={(event) => onUpdate({ ...category, name: event.target.value })}
+              aria-label="Category name"
+            />
+            <label className="category-row-color" title={`Change ${category.name} color`}>
+              <input
+                type="color"
+                value={category.color}
+                onChange={(event) => onUpdate({ ...category, color: event.target.value })}
+                aria-label={`Choose ${category.name} color`}
+              />
+            </label>
+            <button className="category-delete" onClick={() => onDelete(category)} aria-label={`Delete ${category.name}`}>
+              <Trash2 size={17} />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   )

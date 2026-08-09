@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { App as NativeApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Check,
@@ -6,7 +9,6 @@ import {
   MapPinPlus,
   Navigation,
   PencilRuler,
-  Plus,
   Radio,
   Undo2
 } from 'lucide-react'
@@ -17,19 +19,30 @@ import { useGeolocation } from './hooks/useGeolocation'
 import { importDataFile, downloadBackup, downloadGeoJSON } from './lib/backup'
 import {
   canFinishSurvey,
+  destinationForGeometry,
   fixToPosition,
   pointGeometry,
   positionDistanceMeters,
   surveyGeometry
 } from './lib/geo'
 import { filterMapFeatures } from './lib/filter'
+import { parseCoordinateQuery } from './lib/coordinates'
+import { navigationProgress } from './lib/navigation'
+import { searchPlaces } from './lib/placeSearch'
+import { directOfflineRoute, requestRoute } from './lib/routing'
+import { clearStoredRoute, loadStoredRoute, saveStoredRoute } from './lib/routeStorage'
 import type {
   AppSettings,
   Category,
   FeatureKind,
   MapFeature,
+  NavigationProgress,
+  RouteEndpoint,
+  RoutePlan,
+  SearchPlace,
   SheetName,
-  SurveyState
+  SurveyState,
+  TravelMode
 } from './types'
 import { BottomNav } from './components/BottomNav'
 import { BottomSheet } from './components/BottomSheet'
@@ -37,15 +50,44 @@ import { CategoryManager } from './components/CategoryManager'
 import { FeatureDetail } from './components/FeatureDetail'
 import { FeatureEditor } from './components/FeatureEditor'
 import { MapCanvas } from './components/MapCanvas'
+import { DrivingMap } from './components/DrivingMap'
+import { CompassControl } from './components/CompassControl'
+import { NavigationBanner } from './components/NavigationBanner'
+import { MoonCorner, MoonPage } from './components/MoonPage'
+import { PlaceSearchSheet } from './components/PlaceSearchSheet'
+import { RouteChip } from './components/RouteChip'
+import { RouteSheet } from './components/RouteSheet'
 import { SavedSheet } from './components/SavedSheet'
 import { SearchBar } from './components/SearchBar'
+import { SearchPlaceDetail } from './components/SearchPlaceDetail'
 import { SettingsSheet } from './components/SettingsSheet'
+import { StartMapButton } from './components/StartMapButton'
 import { SurveySheet } from './components/SurveySheet'
 import { Toast, type ToastMessage } from './components/Toast'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+function routeEndpointForFeature(feature: MapFeature): RouteEndpoint {
+  return {
+    id: `saved:${feature.id}`,
+    label: feature.name || `Saved ${feature.kind}`,
+    subtitle: feature.description || `Saved ${feature.kind}`,
+    position: destinationForGeometry(feature.geometry),
+    source: 'saved'
+  }
+}
+
+function routeEndpointForPlace(place: SearchPlace): RouteEndpoint {
+  return {
+    id: `search:${place.id}`,
+    label: place.name,
+    subtitle: place.address,
+    position: place.position,
+    source: 'search'
+  }
 }
 
 function newFeature(
@@ -61,7 +103,7 @@ function newFeature(
     kind,
     name: '',
     description: '',
-    categoryId: kind === 'trail' ? 'trails' : kind === 'area' ? 'nature' : 'uncategorized',
+    categoryId: '',
     tags: [],
     geometry,
     photos: [],
@@ -84,6 +126,11 @@ function useTheme(settings: AppSettings) {
       document
         .querySelector('meta[name="theme-color"]')
         ?.setAttribute('content', resolved === 'dark' ? '#0b1514' : '#edf1e9')
+      if (Capacitor.isNativePlatform()) {
+        void StatusBar.setStyle({
+          style: resolved === 'dark' ? StatusBarStyle.Dark : StatusBarStyle.Light
+        }).catch(() => undefined)
+      }
     }
     apply()
     media.addEventListener('change', apply)
@@ -97,6 +144,7 @@ export default function App() {
   const liveSettings = useLiveQuery(() => db.settings.get('settings'))
   const settings = liveSettings ?? DEFAULT_SETTINGS
   const geo = useGeolocation()
+  const restoredRoute = useMemo(() => loadStoredRoute(), [])
 
   const [sheet, setSheet] = useState<SheetName>('none')
   const [query, setQuery] = useState('')
@@ -105,6 +153,7 @@ export default function App() {
   const [editorDraft, setEditorDraft] = useState<MapFeature>()
   const [editorExisting, setEditorExisting] = useState(false)
   const [editorReturnSheet, setEditorReturnSheet] = useState<SheetName>('none')
+  const [categoryReturnSheet, setCategoryReturnSheet] = useState<'settings' | 'editor'>('settings')
   const [editingGeometry, setEditingGeometry] = useState(false)
   const [survey, setSurvey] = useState<SurveyState | null>(null)
   const [fieldMapIntent, setFieldMapIntent] = useState(false)
@@ -112,10 +161,28 @@ export default function App() {
   const [locationFocusToken, setLocationFocusToken] = useState(0)
   const [toast, setToast] = useState<ToastMessage>()
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent>()
+  const [startingMap, setStartingMap] = useState(false)
+  const [placeResults, setPlaceResults] = useState<SearchPlace[]>([])
+  const [placeSearchLoading, setPlaceSearchLoading] = useState(false)
+  const [placeSearchError, setPlaceSearchError] = useState<string>()
+  const [searchedPlace, setSearchedPlace] = useState<SearchPlace>()
+  const [searchFocusToken, setSearchFocusToken] = useState(0)
+  const [routeDestination, setRouteDestination] = useState<RouteEndpoint | undefined>(restoredRoute?.destination)
+  const [routeMode, setRouteMode] = useState<TravelMode>(restoredRoute?.mode ?? 'driving')
+  const [routePlan, setRoutePlan] = useState<RoutePlan | undefined>(restoredRoute)
+  const [routeLoading, setRouteLoading] = useState(false)
+  const [routeError, setRouteError] = useState<string>()
+  const [routeFocusToken, setRouteFocusToken] = useState(0)
+  const [navigationActive, setNavigationActive] = useState(false)
+  const [followingNavigation, setFollowingNavigation] = useState(true)
+  const [mapBearing, setMapBearing] = useState(0)
   const toastTimerRef = useRef<number | undefined>(undefined)
   const settingsTimerRef = useRef<number | undefined>(undefined)
   const lastSurveyFixRef = useRef(0)
   const lastSurveyAppendRef = useRef(0)
+  const startingMapRef = useRef(false)
+  const placeSearchRequestRef = useRef(0)
+  const routeRequestRef = useRef(0)
 
   useTheme(settings)
 
@@ -146,10 +213,35 @@ export default function App() {
     return filterMapFeatures(allFeatures, categories, query, activeMapId)
   }, [allFeatures, categories, query, activeMapId])
 
+  const routePoints = useMemo(() => {
+    const points = allFeatures.map(routeEndpointForFeature)
+    const transientPoints = [
+      searchedPlace ? routeEndpointForPlace(searchedPlace) : undefined,
+      routeDestination,
+      routePlan?.origin.source === 'current' ? undefined : routePlan?.origin,
+      routePlan?.destination
+    ]
+    transientPoints.forEach((point) => {
+      if (point && !points.some((candidate) => candidate.id === point.id)) points.unshift(point)
+    })
+    return points
+  }, [allFeatures, routeDestination, routePlan, searchedPlace])
+
+  const liveNavigation = useMemo<NavigationProgress | undefined>(() => {
+    if (!routePlan || !geo.fix) return undefined
+    return navigationProgress(routePlan, geo.fix)
+  }, [geo.fix, routePlan])
+
   const createDraft = useCallback((
     kind: FeatureKind,
     geometry: Geometry,
-    options?: { source?: MapFeature['source']; isFieldMap?: boolean; returnTo?: SheetName }
+    options?: {
+      source?: MapFeature['source']
+      isFieldMap?: boolean
+      returnTo?: SheetName
+      name?: string
+      description?: string
+    }
   ) => {
     const feature = newFeature(
       kind,
@@ -158,6 +250,8 @@ export default function App() {
       options?.source,
       options?.isFieldMap
     )
+    feature.name = options?.name ?? ''
+    feature.description = options?.description ?? ''
     setEditorDraft(feature)
     setEditorExisting(false)
     setEditorReturnSheet(options?.returnTo ?? (survey ? 'survey' : 'none'))
@@ -184,6 +278,7 @@ export default function App() {
     }
     await db.features.put(saved)
     setEditorDraft(undefined)
+    setSearchedPlace(undefined)
     setEditingGeometry(false)
     setSelectedId(saved.id)
     setFocusToken((token) => token + 1)
@@ -224,6 +319,7 @@ export default function App() {
     const feature = allFeatures.find((candidate) => candidate.id === id)
     if (!feature) return
     setSelectedId(id)
+    setSearchedPlace(undefined)
     setEditorDraft(undefined)
     setEditingGeometry(false)
     setSheet('detail')
@@ -234,6 +330,7 @@ export default function App() {
   const openFieldMap = useCallback((feature: MapFeature) => {
     setActiveMapId(feature.id)
     setSelectedId(feature.id)
+    setSearchedPlace(undefined)
     setQuery('')
     setSheet('none')
     setFocusToken((token) => token + 1)
@@ -246,9 +343,204 @@ export default function App() {
     setSheet('none')
   }, [])
 
+  const submitPlaceSearch = useCallback(async () => {
+    const normalizedQuery = query.trim()
+    if (normalizedQuery.length < 2) {
+      showToast('Enter at least two characters to search.', 'warning')
+      return
+    }
+
+    const coordinate = parseCoordinateQuery(normalizedQuery)
+    if (coordinate) {
+      placeSearchRequestRef.current += 1
+      setPlaceSearchLoading(false)
+      setPlaceSearchError(undefined)
+      setPlaceResults([])
+      setSearchedPlace(coordinate)
+      setSelectedId(undefined)
+      setSheet('place')
+      setSearchFocusToken((token) => token + 1)
+      navigator.vibrate?.(8)
+      return
+    }
+
+    const requestId = placeSearchRequestRef.current + 1
+    placeSearchRequestRef.current = requestId
+    setPlaceSearchLoading(true)
+    setPlaceSearchError(undefined)
+    setPlaceResults([])
+    setSheet('search')
+
+    const bias = geo.fix
+      ? fixToPosition(geo.fix)
+      : settings.lastCenter
+
+    try {
+      const results = await searchPlaces(normalizedQuery, bias)
+      if (placeSearchRequestRef.current !== requestId) return
+      setPlaceResults(results)
+    } catch (error) {
+      if (placeSearchRequestRef.current !== requestId) return
+      setPlaceSearchError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Place search is unavailable right now.'
+      )
+    } finally {
+      if (placeSearchRequestRef.current === requestId) setPlaceSearchLoading(false)
+    }
+  }, [geo.fix, query, settings.lastCenter, showToast])
+
+  const previewPlace = useCallback((place: SearchPlace) => {
+    setSearchedPlace(place)
+    setSelectedId(undefined)
+    setSheet('place')
+    setSearchFocusToken((token) => token + 1)
+    navigator.vibrate?.(8)
+  }, [])
+
+  const clearRoute = useCallback(() => {
+    routeRequestRef.current += 1
+    setRoutePlan(undefined)
+    setRouteDestination(undefined)
+    setRouteError(undefined)
+    setRouteLoading(false)
+    setNavigationActive(false)
+    setFollowingNavigation(true)
+    setMapBearing(0)
+    clearStoredRoute()
+  }, [])
+
+  const startLiveNavigation = useCallback((route = routePlan) => {
+    if (!route) return
+    setRoutePlan(route)
+    setRouteDestination(route.destination)
+    setRouteMode(route.mode)
+    setNavigationActive(true)
+    setFollowingNavigation(true)
+    setSheet('none')
+    saveStoredRoute(route)
+    navigator.vibrate?.(10)
+  }, [routePlan])
+
+  const buildNavigation = useCallback(async (
+    originId: string,
+    destination: RouteEndpoint,
+    mode: TravelMode
+  ) => {
+    const requestId = routeRequestRef.current + 1
+    routeRequestRef.current = requestId
+    setRouteDestination(destination)
+    setRouteMode(mode)
+    setRouteLoading(true)
+    setRouteError(undefined)
+
+    try {
+      let origin: RouteEndpoint
+      if (originId === 'current') {
+        const recentFix = geo.fix
+          && Date.now() - geo.fix.timestamp < 10_000
+          && geo.fix.accuracy <= 80
+          ? geo.fix
+          : undefined
+        const fix = recentFix ?? await geo.locate()
+        origin = {
+          id: 'current',
+          label: 'My current location',
+          position: fixToPosition(fix),
+          source: 'current'
+        }
+        setLocationFocusToken((token) => token + 1)
+      } else {
+        const point = routePoints.find((candidate) => candidate.id === originId)
+        if (!point) throw new Error('Choose a valid starting point.')
+        origin = point
+      }
+
+      if (routeRequestRef.current !== requestId) return
+      if (positionDistanceMeters(origin.position, destination.position) < 3) {
+        throw new Error('The start and destination are the same point.')
+      }
+
+      try {
+        const route = await requestRoute(origin, destination, mode)
+        if (routeRequestRef.current !== requestId) return
+        setRoutePlan(route)
+        saveStoredRoute(route)
+        setRouteFocusToken((token) => token + 1)
+        if (origin.source === 'current') startLiveNavigation(route)
+        else navigator.vibrate?.(10)
+      } catch (error) {
+        if (!destination.id.includes('coordinate:')) throw error
+        const route = directOfflineRoute(origin, destination, mode)
+        if (routeRequestRef.current !== requestId) return
+        setRoutePlan(route)
+        saveStoredRoute(route)
+        setRouteFocusToken((token) => token + 1)
+        showToast('No road route is available offline. Starting direct compass guidance.', 'warning')
+        if (origin.source === 'current') startLiveNavigation(route)
+      }
+    } catch (error) {
+      if (routeRequestRef.current !== requestId) return
+      setRoutePlan(undefined)
+      setRouteError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'A route could not be built between those points.'
+      )
+    } finally {
+      if (routeRequestRef.current === requestId) setRouteLoading(false)
+    }
+  }, [geo, routePoints, showToast, startLiveNavigation])
+
+  const openNavigation = useCallback((destination: RouteEndpoint, mode: TravelMode) => {
+    setRouteDestination(destination)
+    setRouteMode(mode)
+    setRoutePlan(undefined)
+    setNavigationActive(false)
+    setRouteError(undefined)
+    setSheet('route')
+    void buildNavigation('current', destination, mode)
+  }, [buildNavigation])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+
+    let disposed = false
+    let removeListener: (() => Promise<void>) | undefined
+
+    void NativeApp.addListener('backButton', () => {
+      if (editingGeometry) {
+        setEditingGeometry(false)
+        setSheet('editor')
+      } else if (sheet === 'categories') {
+        setSheet(categoryReturnSheet)
+      } else if (sheet === 'editor') {
+        cancelEditor()
+      } else if (sheet !== 'none') {
+        setSheet('none')
+      } else if (activeMapId) {
+        leaveFieldMap()
+      } else {
+        void NativeApp.minimizeApp()
+      }
+    }).then((handle) => {
+      if (disposed) {
+        void handle.remove()
+      } else {
+        removeListener = () => handle.remove()
+      }
+    })
+
+    return () => {
+      disposed = true
+      void removeListener?.()
+    }
+  }, [activeMapId, cancelEditor, categoryReturnSheet, editingGeometry, leaveFieldMap, sheet])
+
   const locate = useCallback(async (addPlace = false) => {
     try {
-      const fix = await geo.locate()
+      const fix = addPlace && geo.fix ? geo.fix : await geo.locate()
       setLocationFocusToken((token) => token + 1)
       if (addPlace) {
         createDraft('place', pointGeometry(fixToPosition(fix)), {
@@ -260,6 +552,18 @@ export default function App() {
       showToast(error instanceof Error ? error.message : 'Location is unavailable.', 'warning')
     }
   }, [geo, createDraft, survey, showToast])
+
+  const startMap = useCallback(async () => {
+    if (startingMapRef.current) return
+    startingMapRef.current = true
+    setStartingMap(true)
+    try {
+      await locate(true)
+    } finally {
+      startingMapRef.current = false
+      setStartingMap(false)
+    }
+  }, [locate])
 
   const startSurvey = useCallback(async (
     mode: SurveyState['mode'],
@@ -282,7 +586,6 @@ export default function App() {
         startedAt: Date.now(),
         paused: false
       })
-      geo.start()
       setLocationFocusToken((token) => token + 1)
       setSheet('survey')
       showToast('GPS recording started.', 'success')
@@ -316,45 +619,70 @@ export default function App() {
   }, [geo.fix, survey?.mode, survey?.paused])
 
   useEffect(() => {
-    if (!survey || survey.mode.startsWith('draw') || survey.paused) return
-    let lock: { release: () => Promise<void> } | undefined
+    const recordingGps = Boolean(survey && !survey.mode.startsWith('draw') && !survey.paused)
+    if (navigationActive || recordingGps) geo.start()
+    else geo.stop()
+  }, [geo.start, geo.stop, navigationActive, survey?.mode, survey?.paused])
+
+  useEffect(() => {
+    const recordingGps = Boolean(survey && !survey.mode.startsWith('draw') && !survey.paused)
+    if (!navigationActive && !recordingGps) return
+    let lock: {
+      release: () => Promise<void>
+      addEventListener?: (type: 'release', listener: () => void) => void
+    } | undefined
     const wakeLock = (navigator as Navigator & {
-      wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> }
+      wakeLock?: {
+        request: (type: 'screen') => Promise<{
+          release: () => Promise<void>
+          addEventListener?: (type: 'release', listener: () => void) => void
+        }>
+      }
     }).wakeLock
-    void wakeLock?.request('screen').then((value) => { lock = value }).catch(() => undefined)
-    return () => { void lock?.release() }
-  }, [survey?.mode, survey?.paused])
+    const acquire = () => {
+      if (document.visibilityState !== 'visible' || lock) return
+      void wakeLock?.request('screen').then((value) => {
+        lock = value
+        value.addEventListener?.('release', () => { lock = undefined })
+      }).catch(() => undefined)
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') acquire()
+    }
+    acquire()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      void lock?.release()
+    }
+  }, [navigationActive, survey?.mode, survey?.paused])
 
   const pauseSurvey = useCallback(() => {
     setSurvey((current) => current ? { ...current, paused: true } : current)
-    geo.stop()
-  }, [geo])
+  }, [])
 
   const resumeSurvey = useCallback(() => {
     setSurvey((current) => current ? { ...current, paused: false } : current)
-    geo.start()
-  }, [geo])
+  }, [])
 
   const cancelSurvey = useCallback(() => {
     if (!window.confirm('Discard this unfinished survey?')) return
-    geo.stop()
     setSurvey(null)
     setFieldMapIntent(false)
     setSheet('none')
     showToast('Survey discarded.')
-  }, [geo, showToast])
+  }, [showToast])
 
   const finishSurvey = useCallback(() => {
     if (!survey || !canFinishSurvey(survey.mode, survey.coordinates)) return
     const geometry = surveyGeometry(survey.mode, survey.coordinates)
     const kind: FeatureKind = survey.mode.endsWith('area') ? 'area' : 'trail'
     const source = survey.mode.startsWith('record') ? 'gps' : 'manual'
-    geo.stop()
     setSurvey(null)
     const isFieldMap = fieldMapIntent && kind === 'area'
     setFieldMapIntent(false)
     createDraft(kind, geometry, { source, isFieldMap, returnTo: 'none' })
-  }, [survey, fieldMapIntent, geo, createDraft])
+  }, [survey, fieldMapIntent, createDraft])
 
   const onDrawVertex = useCallback((position: Position) => {
     setSurvey((current) => {
@@ -380,11 +708,11 @@ export default function App() {
   }, [])
 
   const deleteCategory = useCallback(async (category: Category) => {
-    if (!window.confirm(`Delete “${category.name}”? Its saved features will become Uncategorized.`)) return
+    if (!window.confirm(`Delete “${category.name}”? Its saved features will keep their data and show as having no category.`)) return
     await db.transaction('rw', db.categories, db.features, async () => {
       const affected = await db.features.where('categoryId').equals(category.id).toArray()
       await db.features.bulkPut(
-        affected.map((feature) => ({ ...feature, categoryId: 'uncategorized', updatedAt: Date.now() }))
+        affected.map((feature) => ({ ...feature, categoryId: '', updatedAt: Date.now() }))
       )
       await db.categories.delete(category.id)
     })
@@ -398,10 +726,12 @@ export default function App() {
     })
     await ensureDatabaseDefaults()
     setSelectedId(undefined)
+    setSearchedPlace(undefined)
     setActiveMapId(undefined)
+    clearRoute()
     setSheet('none')
     showToast('MapVenture has been reset.')
-  }, [showToast])
+  }, [clearRoute, showToast])
 
   const install = useCallback(async () => {
     if (!installPrompt) return
@@ -430,17 +760,21 @@ export default function App() {
     : 0
 
   return (
-    <main className={`app-shell ${sheet !== 'none' ? 'has-sheet' : ''} ${survey ? 'has-survey' : ''}`}>
+    <main className={`app-shell ${sheet !== 'none' ? 'has-sheet' : ''} ${survey ? 'has-survey' : ''} ${navigationActive ? 'is-navigating' : ''}`}>
       <MapCanvas
         features={visibleFeatures}
         categories={categories}
         selectedFeature={selectedFeature}
+        searchPlace={searchedPlace}
+        route={routePlan}
         survey={survey}
         geoFix={geo.fix}
         settings={settings}
         editableGeometry={editorDraft?.geometry}
         editingGeometry={editingGeometry}
         focusToken={focusToken}
+        searchFocusToken={searchFocusToken}
+        routeFocusToken={routeFocusToken}
         locationFocusToken={locationFocusToken}
         onSelect={selectFeature}
         onLongPress={(position) => createDraft('place', pointGeometry(position))}
@@ -451,37 +785,93 @@ export default function App() {
         onMapMoved={saveMapPosition}
       />
 
-      <SearchBar
-        value={query}
-        activeMapName={activeFieldMap?.name}
-        onChange={setQuery}
-        onOpenSaved={() => setSheet('saved')}
-        onLeaveMap={leaveFieldMap}
-      />
-
-      {query && (
-        <button className="search-result-count" onClick={() => setSheet('saved')}>
-          {visibleFeatures.length} {visibleFeatures.length === 1 ? 'result' : 'results'}
-        </button>
+      {navigationActive && routePlan && (
+        <DrivingMap
+          route={routePlan}
+          fix={geo.fix}
+          progress={liveNavigation}
+          follow={followingNavigation}
+          onFollowChange={setFollowingNavigation}
+          onBearingChange={setMapBearing}
+        />
       )}
 
-      <div className="map-actions">
-        <button onClick={() => void locate(false)} aria-label="Center on my location">
-          <LocateFixed size={21} />
-        </button>
-        <button className="map-actions__add" onClick={() => void locate(true)} aria-label="Save my current location">
-          <MapPinPlus size={22} />
-        </button>
-      </div>
+      {!navigationActive && (
+        <SearchBar
+          value={query}
+          activeMapName={activeFieldMap?.name}
+          searching={placeSearchLoading}
+          onChange={(value) => {
+            setQuery(value)
+            if (!value) {
+              placeSearchRequestRef.current += 1
+              setPlaceSearchLoading(false)
+              setPlaceSearchError(undefined)
+              setPlaceResults([])
+              setSearchedPlace(undefined)
+            }
+          }}
+          onSubmit={() => void submitPlaceSearch()}
+          onOpenSaved={() => setSheet('saved')}
+          onLeaveMap={leaveFieldMap}
+        />
+      )}
 
-      {allFeatures.length === 0 && sheet === 'none' && !survey && (
-        <button className="first-pin-hint" onClick={() => void locate(true)}>
-          <span><Plus size={18} /></span>
-          <div>
-            <strong>Start your map</strong>
-            <small>Save where you are, or hold anywhere on the map.</small>
-          </div>
-        </button>
+      <CompassControl
+        bearing={mapBearing}
+        navigationActive={navigationActive}
+        following={followingNavigation}
+        onRecenter={() => {
+          if (navigationActive) setFollowingNavigation(true)
+          else void locate(false)
+        }}
+      />
+
+      {!navigationActive && sheet === 'none' && !query && !editingGeometry && (
+        <MoonCorner onOpen={() => setSheet('moon')} />
+      )}
+
+      {!navigationActive && (
+        <div className="map-actions">
+          <button onClick={() => void locate(false)} aria-label="Center on my location">
+            <LocateFixed size={21} />
+          </button>
+          <button className="map-actions__add" onClick={() => void locate(true)} aria-label="Save my current location">
+            <MapPinPlus size={22} />
+          </button>
+        </div>
+      )}
+
+      {!navigationActive && allFeatures.length === 0 && !searchedPlace && !routePlan && sheet === 'none' && !survey && (
+        <StartMapButton
+          busy={startingMap}
+          onStart={() => void startMap()}
+        />
+      )}
+
+      {routePlan && !navigationActive && sheet === 'none' && !editingGeometry && (
+        <RouteChip
+          route={routePlan}
+          units={settings.units}
+          onOpen={() => {
+            setRouteDestination(routePlan.destination)
+            setRouteMode(routePlan.mode)
+            setSheet('route')
+          }}
+          onClear={clearRoute}
+        />
+      )}
+
+      {navigationActive && routePlan && (
+        <NavigationBanner
+          route={routePlan}
+          progress={liveNavigation}
+          units={settings.units}
+          following={followingNavigation}
+          onOpen={() => setSheet('route')}
+          onRecenter={() => setFollowingNavigation(true)}
+          onEnd={clearRoute}
+        />
       )}
 
       {survey && sheet !== 'survey' && sheet !== 'editor' && (
@@ -533,6 +923,85 @@ export default function App() {
             Done
           </button>
         </div>
+      )}
+
+      {sheet === 'search' && (
+        <BottomSheet
+          title={`Search “${query.trim()}”`}
+          eyebrow="Saved and real-world places"
+          onClose={() => setSheet('none')}
+          roomy
+        >
+          <PlaceSearchSheet
+            query={query.trim()}
+            savedResults={visibleFeatures}
+            placeResults={placeResults}
+            loading={placeSearchLoading}
+            error={placeSearchError}
+            onRetry={() => void submitPlaceSearch()}
+            onSelectSaved={(feature) => selectFeature(feature.id)}
+            onSelectPlace={previewPlace}
+          />
+        </BottomSheet>
+      )}
+
+      {sheet === 'place' && searchedPlace && (
+        <BottomSheet
+          title={searchedPlace.name}
+          eyebrow="Search result"
+          onClose={() => setSheet('none')}
+          roomy
+        >
+          <SearchPlaceDetail
+            place={searchedPlace}
+            onSave={() => createDraft(
+              'place',
+              pointGeometry(searchedPlace.position),
+              {
+                name: searchedPlace.name,
+                description: searchedPlace.address,
+                returnTo: 'place'
+              }
+            )}
+            onNavigate={(mode) => openNavigation(routeEndpointForPlace(searchedPlace), mode)}
+          />
+        </BottomSheet>
+      )}
+
+      {sheet === 'route' && (
+        <BottomSheet
+          title="Directions"
+          eyebrow="In-app navigation"
+          onClose={() => setSheet('none')}
+          roomy
+        >
+          <RouteSheet
+            points={routePoints}
+            destination={routeDestination}
+            mode={routeMode}
+            route={routePlan}
+            loading={routeLoading}
+            error={routeError}
+            units={settings.units}
+            navigationActive={navigationActive}
+            onModeChange={setRouteMode}
+            onDestinationChange={(destination) => {
+              clearRoute()
+              setRouteDestination(destination)
+            }}
+            onBuild={(originId, destination, mode) => {
+              void buildNavigation(originId, destination, mode)
+            }}
+            onStart={() => startLiveNavigation()}
+            onClear={clearRoute}
+          />
+        </BottomSheet>
+      )}
+
+      {sheet === 'moon' && (
+        <BottomSheet title="Moon" eyebrow="Lunar cycle" onClose={() => setSheet('none')} roomy>
+          <MoonPage />
+        </BottomSheet>
       )}
 
       {sheet === 'saved' && (
@@ -593,7 +1062,10 @@ export default function App() {
             photoCount={allFeatures.reduce((total, feature) => total + feature.photos.length, 0)}
             installAvailable={Boolean(installPrompt)}
             onChange={updateSettings}
-            onOpenCategories={() => setSheet('categories')}
+            onOpenCategories={() => {
+              setCategoryReturnSheet('settings')
+              setSheet('categories')
+            }}
             onExportBackup={() => void downloadBackup().then(() => showToast('Backup downloaded.', 'success'))}
             onExportGeoJSON={() => void downloadGeoJSON().then(() => showToast('GeoJSON downloaded.', 'success'))}
             onImport={(file) => {
@@ -611,14 +1083,21 @@ export default function App() {
         <BottomSheet
           title="Categories"
           eyebrow="Map layers"
-          onClose={() => setSheet('settings')}
+          onClose={() => setSheet(categoryReturnSheet)}
           roomy
         >
           <CategoryManager
             categories={categories}
             onCreate={(category) => {
-              void db.categories.put(category)
-              showToast('Category added.', 'success')
+              void db.categories.put(category).then(() => {
+                if (categoryReturnSheet === 'editor') {
+                  setEditorDraft((draft) => draft
+                    ? { ...draft, categoryId: category.id, updatedAt: Date.now() }
+                    : draft)
+                  setSheet('editor')
+                }
+                showToast('Category added.', 'success')
+              })
             }}
             onUpdate={updateCategory}
             onDelete={(category) => void deleteCategory(category)}
@@ -650,6 +1129,7 @@ export default function App() {
               showToast('Visit recorded.', 'success')
             }}
             onOpenFieldMap={() => openFieldMap(selectedFeature)}
+            onNavigate={(mode) => openNavigation(routeEndpointForFeature(selectedFeature), mode)}
           />
         </BottomSheet>
       )}
@@ -668,6 +1148,10 @@ export default function App() {
             units={settings.units}
             editingGeometry={editingGeometry}
             onChange={setEditorDraft}
+            onCreateCategory={() => {
+              setCategoryReturnSheet('editor')
+              setSheet('categories')
+            }}
             onToggleGeometryEditing={() => {
               setEditingGeometry(true)
               setSheet('none')
@@ -680,7 +1164,7 @@ export default function App() {
         </BottomSheet>
       )}
 
-      {sheet !== 'editor' && !editingGeometry && (
+      {!navigationActive && sheet !== 'editor' && !editingGeometry && (
         <BottomNav
           active={sheet}
           onSelect={(next) => setSheet(sheet === next ? 'none' : next)}
