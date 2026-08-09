@@ -66,6 +66,7 @@ export interface SearchPlace {
   address: string
   position: Position
   kind?: string
+  offline?: boolean
 }
 
 export type TravelMode = 'driving' | 'walking'
@@ -94,6 +95,17 @@ export interface RoutePlan {
   durationSeconds: number
   steps: RouteStep[]
   createdAt: number
+  direct?: boolean
+}
+
+export interface NavigationProgress {
+  segmentIndex: number
+  routeRatio: number
+  distanceRemainingMeters: number
+  distanceOffRouteMeters: number
+  stepIndex: number
+  distanceToStepMeters: number
+  arrived: boolean
 }
 
 export interface SurveyState {

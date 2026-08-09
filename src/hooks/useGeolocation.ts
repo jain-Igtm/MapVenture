@@ -11,13 +11,24 @@ type PositionLike = GeolocationPosition | NativePosition
 const native = Capacitor.isNativePlatform()
 
 function toFix(position: PositionLike): GeoFix {
+  const nativeCoordinates = position.coords as typeof position.coords & {
+    course?: number | null
+    trueHeading?: number | null
+    magneticHeading?: number | null
+  }
+  const movementHeading = position.coords.speed !== null && position.coords.speed >= 1.2
+    ? nativeCoordinates.course
+    : undefined
   return {
     longitude: position.coords.longitude,
     latitude: position.coords.latitude,
     accuracy: position.coords.accuracy,
     altitude: position.coords.altitude,
     speed: position.coords.speed,
-    heading: position.coords.heading,
+    heading: movementHeading
+      ?? nativeCoordinates.trueHeading
+      ?? nativeCoordinates.magneticHeading
+      ?? position.coords.heading,
     timestamp: position.timestamp
   }
 }
@@ -59,8 +70,8 @@ export function useGeolocation() {
 
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
-          timeout: 15_000,
-          maximumAge: 5_000,
+          timeout: 45_000,
+          maximumAge: 1_000,
           enableLocationFallback: true
         })
         const next = toFix(position)
@@ -112,10 +123,10 @@ export function useGeolocation() {
       void Geolocation.watchPosition(
         {
           enableHighAccuracy: true,
-          timeout: 20_000,
-          maximumAge: 1_000,
-          minimumUpdateInterval: 1_000,
-          interval: 2_000,
+          timeout: 60_000,
+          maximumAge: 500,
+          minimumUpdateInterval: 750,
+          interval: 1_000,
           enableLocationFallback: true
         },
         (position, geoError) => {
@@ -127,8 +138,8 @@ export function useGeolocation() {
           if (geoError) {
             setError(
               geoError.code === 'OS-PLUG-GLOC-0003'
-                ? 'Location permission is off. Enable it to record a survey.'
-                : 'The GPS signal was interrupted. Recording will continue when it returns.'
+                ? 'Location permission is off. Enable it for live navigation and GPS surveys.'
+                : 'The GPS signal was interrupted. Live tracking will continue when it returns.'
             )
           }
         }
@@ -146,7 +157,7 @@ export function useGeolocation() {
           ? String(caught.code)
           : ''
         const message = code === 'OS-PLUG-GLOC-0003'
-          ? 'Location permission is off. Enable it to record a survey.'
+          ? 'Location permission is off. Enable it for live navigation and GPS surveys.'
           : 'The GPS signal was interrupted. Check Android location services and try again.'
         setError(message)
         setWatching(false)
@@ -166,11 +177,11 @@ export function useGeolocation() {
       (geoError) => {
         setError(
           geoError.code === geoError.PERMISSION_DENIED
-            ? 'Location permission is off. Enable it to record a survey.'
-            : 'The GPS signal was interrupted. Recording will continue when it returns.'
+            ? 'Location permission is off. Enable it for live navigation and GPS surveys.'
+            : 'The GPS signal was interrupted. Live tracking will continue when it returns.'
         )
       },
-      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 1_000 }
+      { enableHighAccuracy: true, timeout: 60_000, maximumAge: 500 }
     )
     starting.current = false
   }, [])

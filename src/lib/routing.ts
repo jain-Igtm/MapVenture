@@ -5,6 +5,7 @@ import type {
   RouteStep,
   TravelMode
 } from '../types'
+import { positionDistanceMeters } from './geo'
 
 const VALHALLA_ENDPOINT = 'https://valhalla1.openstreetmap.de/route'
 const ROUTE_TIMEOUT_MS = 25_000
@@ -184,6 +185,9 @@ export async function requestRoute(
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('Route calculation took too long. Check your connection and try again.')
     }
+    if (error instanceof TypeError) {
+      throw new Error('A new road route needs a connection. Routes you already built remain available offline.')
+    }
     throw new Error(
       error instanceof Error && error.message
         ? error.message
@@ -191,6 +195,31 @@ export async function requestRoute(
     )
   } finally {
     globalThis.clearTimeout(timeout)
+  }
+}
+
+export function directOfflineRoute(
+  origin: RouteEndpoint,
+  destination: RouteEndpoint,
+  mode: TravelMode
+): RoutePlan {
+  const distanceMeters = positionDistanceMeters(origin.position, destination.position)
+  const speedMetersPerSecond = mode === 'driving' ? 11.2 : 1.35
+  return {
+    mode,
+    origin,
+    destination,
+    coordinates: [origin.position, destination.position],
+    distanceMeters,
+    durationSeconds: distanceMeters / speedMetersPerSecond,
+    steps: [{
+      id: 'direct',
+      instruction: `Continue toward ${destination.label}`,
+      distanceMeters,
+      durationSeconds: distanceMeters / speedMetersPerSecond
+    }],
+    createdAt: Date.now(),
+    direct: true
   }
 }
 

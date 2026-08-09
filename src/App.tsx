@@ -26,13 +26,17 @@ import {
   surveyGeometry
 } from './lib/geo'
 import { filterMapFeatures } from './lib/filter'
+import { parseCoordinateQuery } from './lib/coordinates'
+import { navigationProgress } from './lib/navigation'
 import { searchPlaces } from './lib/placeSearch'
-import { requestRoute } from './lib/routing'
+import { directOfflineRoute, requestRoute } from './lib/routing'
+import { clearStoredRoute, loadStoredRoute, saveStoredRoute } from './lib/routeStorage'
 import type {
   AppSettings,
   Category,
   FeatureKind,
   MapFeature,
+  NavigationProgress,
   RouteEndpoint,
   RoutePlan,
   SearchPlace,
@@ -46,6 +50,9 @@ import { CategoryManager } from './components/CategoryManager'
 import { FeatureDetail } from './components/FeatureDetail'
 import { FeatureEditor } from './components/FeatureEditor'
 import { MapCanvas } from './components/MapCanvas'
+import { DrivingMap } from './components/DrivingMap'
+import { CompassControl } from './components/CompassControl'
+import { NavigationBanner } from './components/NavigationBanner'
 import { MoonCorner, MoonPage } from './components/MoonPage'
 import { PlaceSearchSheet } from './components/PlaceSearchSheet'
 import { RouteChip } from './components/RouteChip'
@@ -137,6 +144,7 @@ export default function App() {
   const liveSettings = useLiveQuery(() => db.settings.get('settings'))
   const settings = liveSettings ?? DEFAULT_SETTINGS
   const geo = useGeolocation()
+  const restoredRoute = useMemo(() => loadStoredRoute(), [])
 
   const [sheet, setSheet] = useState<SheetName>('none')
   const [query, setQuery] = useState('')
@@ -159,12 +167,15 @@ export default function App() {
   const [placeSearchError, setPlaceSearchError] = useState<string>()
   const [searchedPlace, setSearchedPlace] = useState<SearchPlace>()
   const [searchFocusToken, setSearchFocusToken] = useState(0)
-  const [routeDestination, setRouteDestination] = useState<RouteEndpoint>()
-  const [routeMode, setRouteMode] = useState<TravelMode>('driving')
-  const [routePlan, setRoutePlan] = useState<RoutePlan>()
+  const [routeDestination, setRouteDestination] = useState<RouteEndpoint | undefined>(restoredRoute?.destination)
+  const [routeMode, setRouteMode] = useState<TravelMode>(restoredRoute?.mode ?? 'driving')
+  const [routePlan, setRoutePlan] = useState<RoutePlan | undefined>(restoredRoute)
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState<string>()
   const [routeFocusToken, setRouteFocusToken] = useState(0)
+  const [navigationActive, setNavigationActive] = useState(false)
+  const [followingNavigation, setFollowingNavigation] = useState(true)
+  const [mapBearing, setMapBearing] = useState(0)
   const toastTimerRef = useRef<number | undefined>(undefined)
   const settingsTimerRef = useRef<number | undefined>(undefined)
   const lastSurveyFixRef = useRef(0)
@@ -215,6 +226,11 @@ export default function App() {
     })
     return points
   }, [allFeatures, routeDestination, routePlan, searchedPlace])
+
+  const liveNavigation = useMemo<NavigationProgress | undefined>(() => {
+    if (!routePlan || !geo.fix) return undefined
+    return navigationProgress(routePlan, geo.fix)
+  }, [geo.fix, routePlan])
 
   const createDraft = useCallback((
     kind: FeatureKind,
@@ -334,6 +350,20 @@ export default function App() {
       return
     }
 
+    const coordinate = parseCoordinateQuery(normalizedQuery)
+    if (coordinate) {
+      placeSearchRequestRef.current += 1
+      setPlaceSearchLoading(false)
+      setPlaceSearchError(undefined)
+      setPlaceResults([])
+      setSearchedPlace(coordinate)
+      setSelectedId(undefined)
+      setSheet('place')
+      setSearchFocusToken((token) => token + 1)
+      navigator.vibrate?.(8)
+      return
+    }
+
     const requestId = placeSearchRequestRef.current + 1
     placeSearchRequestRef.current = requestId
     setPlaceSearchLoading(true)
@@ -375,7 +405,23 @@ export default function App() {
     setRouteDestination(undefined)
     setRouteError(undefined)
     setRouteLoading(false)
+    setNavigationActive(false)
+    setFollowingNavigation(true)
+    setMapBearing(0)
+    clearStoredRoute()
   }, [])
+
+  const startLiveNavigation = useCallback((route = routePlan) => {
+    if (!route) return
+    setRoutePlan(route)
+    setRouteDestination(route.destination)
+    setRouteMode(route.mode)
+    setNavigationActive(true)
+    setFollowingNavigation(true)
+    setSheet('none')
+    saveStoredRoute(route)
+    navigator.vibrate?.(10)
+  }, [routePlan])
 
   const buildNavigation = useCallback(async (
     originId: string,
@@ -392,7 +438,12 @@ export default function App() {
     try {
       let origin: RouteEndpoint
       if (originId === 'current') {
-        const fix = geo.fix ?? await geo.locate()
+        const recentFix = geo.fix
+          && Date.now() - geo.fix.timestamp < 10_000
+          && geo.fix.accuracy <= 80
+          ? geo.fix
+          : undefined
+        const fix = recentFix ?? await geo.locate()
         origin = {
           id: 'current',
           label: 'My current location',
@@ -411,11 +462,24 @@ export default function App() {
         throw new Error('The start and destination are the same point.')
       }
 
-      const route = await requestRoute(origin, destination, mode)
-      if (routeRequestRef.current !== requestId) return
-      setRoutePlan(route)
-      setRouteFocusToken((token) => token + 1)
-      navigator.vibrate?.(10)
+      try {
+        const route = await requestRoute(origin, destination, mode)
+        if (routeRequestRef.current !== requestId) return
+        setRoutePlan(route)
+        saveStoredRoute(route)
+        setRouteFocusToken((token) => token + 1)
+        if (origin.source === 'current') startLiveNavigation(route)
+        else navigator.vibrate?.(10)
+      } catch (error) {
+        if (!destination.id.includes('coordinate:')) throw error
+        const route = directOfflineRoute(origin, destination, mode)
+        if (routeRequestRef.current !== requestId) return
+        setRoutePlan(route)
+        saveStoredRoute(route)
+        setRouteFocusToken((token) => token + 1)
+        showToast('No road route is available offline. Starting direct compass guidance.', 'warning')
+        if (origin.source === 'current') startLiveNavigation(route)
+      }
     } catch (error) {
       if (routeRequestRef.current !== requestId) return
       setRoutePlan(undefined)
@@ -427,12 +491,13 @@ export default function App() {
     } finally {
       if (routeRequestRef.current === requestId) setRouteLoading(false)
     }
-  }, [geo, routePoints])
+  }, [geo, routePoints, showToast, startLiveNavigation])
 
   const openNavigation = useCallback((destination: RouteEndpoint, mode: TravelMode) => {
     setRouteDestination(destination)
     setRouteMode(mode)
     setRoutePlan(undefined)
+    setNavigationActive(false)
     setRouteError(undefined)
     setSheet('route')
     void buildNavigation('current', destination, mode)
@@ -521,7 +586,6 @@ export default function App() {
         startedAt: Date.now(),
         paused: false
       })
-      geo.start()
       setLocationFocusToken((token) => token + 1)
       setSheet('survey')
       showToast('GPS recording started.', 'success')
@@ -555,45 +619,70 @@ export default function App() {
   }, [geo.fix, survey?.mode, survey?.paused])
 
   useEffect(() => {
-    if (!survey || survey.mode.startsWith('draw') || survey.paused) return
-    let lock: { release: () => Promise<void> } | undefined
+    const recordingGps = Boolean(survey && !survey.mode.startsWith('draw') && !survey.paused)
+    if (navigationActive || recordingGps) geo.start()
+    else geo.stop()
+  }, [geo.start, geo.stop, navigationActive, survey?.mode, survey?.paused])
+
+  useEffect(() => {
+    const recordingGps = Boolean(survey && !survey.mode.startsWith('draw') && !survey.paused)
+    if (!navigationActive && !recordingGps) return
+    let lock: {
+      release: () => Promise<void>
+      addEventListener?: (type: 'release', listener: () => void) => void
+    } | undefined
     const wakeLock = (navigator as Navigator & {
-      wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> }
+      wakeLock?: {
+        request: (type: 'screen') => Promise<{
+          release: () => Promise<void>
+          addEventListener?: (type: 'release', listener: () => void) => void
+        }>
+      }
     }).wakeLock
-    void wakeLock?.request('screen').then((value) => { lock = value }).catch(() => undefined)
-    return () => { void lock?.release() }
-  }, [survey?.mode, survey?.paused])
+    const acquire = () => {
+      if (document.visibilityState !== 'visible' || lock) return
+      void wakeLock?.request('screen').then((value) => {
+        lock = value
+        value.addEventListener?.('release', () => { lock = undefined })
+      }).catch(() => undefined)
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') acquire()
+    }
+    acquire()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      void lock?.release()
+    }
+  }, [navigationActive, survey?.mode, survey?.paused])
 
   const pauseSurvey = useCallback(() => {
     setSurvey((current) => current ? { ...current, paused: true } : current)
-    geo.stop()
-  }, [geo])
+  }, [])
 
   const resumeSurvey = useCallback(() => {
     setSurvey((current) => current ? { ...current, paused: false } : current)
-    geo.start()
-  }, [geo])
+  }, [])
 
   const cancelSurvey = useCallback(() => {
     if (!window.confirm('Discard this unfinished survey?')) return
-    geo.stop()
     setSurvey(null)
     setFieldMapIntent(false)
     setSheet('none')
     showToast('Survey discarded.')
-  }, [geo, showToast])
+  }, [showToast])
 
   const finishSurvey = useCallback(() => {
     if (!survey || !canFinishSurvey(survey.mode, survey.coordinates)) return
     const geometry = surveyGeometry(survey.mode, survey.coordinates)
     const kind: FeatureKind = survey.mode.endsWith('area') ? 'area' : 'trail'
     const source = survey.mode.startsWith('record') ? 'gps' : 'manual'
-    geo.stop()
     setSurvey(null)
     const isFieldMap = fieldMapIntent && kind === 'area'
     setFieldMapIntent(false)
     createDraft(kind, geometry, { source, isFieldMap, returnTo: 'none' })
-  }, [survey, fieldMapIntent, geo, createDraft])
+  }, [survey, fieldMapIntent, createDraft])
 
   const onDrawVertex = useCallback((position: Position) => {
     setSurvey((current) => {
@@ -671,7 +760,7 @@ export default function App() {
     : 0
 
   return (
-    <main className={`app-shell ${sheet !== 'none' ? 'has-sheet' : ''} ${survey ? 'has-survey' : ''}`}>
+    <main className={`app-shell ${sheet !== 'none' ? 'has-sheet' : ''} ${survey ? 'has-survey' : ''} ${navigationActive ? 'is-navigating' : ''}`}>
       <MapCanvas
         features={visibleFeatures}
         categories={categories}
@@ -696,46 +785,71 @@ export default function App() {
         onMapMoved={saveMapPosition}
       />
 
-      <SearchBar
-        value={query}
-        activeMapName={activeFieldMap?.name}
-        searching={placeSearchLoading}
-        onChange={(value) => {
-          setQuery(value)
-          if (!value) {
-            placeSearchRequestRef.current += 1
-            setPlaceSearchLoading(false)
-            setPlaceSearchError(undefined)
-            setPlaceResults([])
-            setSearchedPlace(undefined)
-          }
+      {navigationActive && routePlan && (
+        <DrivingMap
+          route={routePlan}
+          fix={geo.fix}
+          progress={liveNavigation}
+          follow={followingNavigation}
+          onFollowChange={setFollowingNavigation}
+          onBearingChange={setMapBearing}
+        />
+      )}
+
+      {!navigationActive && (
+        <SearchBar
+          value={query}
+          activeMapName={activeFieldMap?.name}
+          searching={placeSearchLoading}
+          onChange={(value) => {
+            setQuery(value)
+            if (!value) {
+              placeSearchRequestRef.current += 1
+              setPlaceSearchLoading(false)
+              setPlaceSearchError(undefined)
+              setPlaceResults([])
+              setSearchedPlace(undefined)
+            }
+          }}
+          onSubmit={() => void submitPlaceSearch()}
+          onOpenSaved={() => setSheet('saved')}
+          onLeaveMap={leaveFieldMap}
+        />
+      )}
+
+      <CompassControl
+        bearing={mapBearing}
+        navigationActive={navigationActive}
+        following={followingNavigation}
+        onRecenter={() => {
+          if (navigationActive) setFollowingNavigation(true)
+          else void locate(false)
         }}
-        onSubmit={() => void submitPlaceSearch()}
-        onOpenSaved={() => setSheet('saved')}
-        onLeaveMap={leaveFieldMap}
       />
 
-      {sheet === 'none' && !query && !editingGeometry && (
+      {!navigationActive && sheet === 'none' && !query && !editingGeometry && (
         <MoonCorner onOpen={() => setSheet('moon')} />
       )}
 
-      <div className="map-actions">
-        <button onClick={() => void locate(false)} aria-label="Center on my location">
-          <LocateFixed size={21} />
-        </button>
-        <button className="map-actions__add" onClick={() => void locate(true)} aria-label="Save my current location">
-          <MapPinPlus size={22} />
-        </button>
-      </div>
+      {!navigationActive && (
+        <div className="map-actions">
+          <button onClick={() => void locate(false)} aria-label="Center on my location">
+            <LocateFixed size={21} />
+          </button>
+          <button className="map-actions__add" onClick={() => void locate(true)} aria-label="Save my current location">
+            <MapPinPlus size={22} />
+          </button>
+        </div>
+      )}
 
-      {allFeatures.length === 0 && !searchedPlace && !routePlan && sheet === 'none' && !survey && (
+      {!navigationActive && allFeatures.length === 0 && !searchedPlace && !routePlan && sheet === 'none' && !survey && (
         <StartMapButton
           busy={startingMap}
           onStart={() => void startMap()}
         />
       )}
 
-      {routePlan && sheet === 'none' && !editingGeometry && (
+      {routePlan && !navigationActive && sheet === 'none' && !editingGeometry && (
         <RouteChip
           route={routePlan}
           units={settings.units}
@@ -745,6 +859,18 @@ export default function App() {
             setSheet('route')
           }}
           onClear={clearRoute}
+        />
+      )}
+
+      {navigationActive && routePlan && (
+        <NavigationBanner
+          route={routePlan}
+          progress={liveNavigation}
+          units={settings.units}
+          following={followingNavigation}
+          onOpen={() => setSheet('route')}
+          onRecenter={() => setFollowingNavigation(true)}
+          onEnd={clearRoute}
         />
       )}
 
@@ -857,6 +983,7 @@ export default function App() {
             loading={routeLoading}
             error={routeError}
             units={settings.units}
+            navigationActive={navigationActive}
             onModeChange={setRouteMode}
             onDestinationChange={(destination) => {
               clearRoute()
@@ -865,6 +992,7 @@ export default function App() {
             onBuild={(originId, destination, mode) => {
               void buildNavigation(originId, destination, mode)
             }}
+            onStart={() => startLiveNavigation()}
             onClear={clearRoute}
           />
         </BottomSheet>
@@ -1036,7 +1164,7 @@ export default function App() {
         </BottomSheet>
       )}
 
-      {sheet !== 'editor' && !editingGeometry && (
+      {!navigationActive && sheet !== 'editor' && !editingGeometry && (
         <BottomNav
           active={sheet}
           onSelect={(next) => setSheet(sheet === next ? 'none' : next)}

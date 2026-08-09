@@ -37,7 +37,11 @@ export function SearchPlaceDetail({
         </button>
       </div>
 
-      <p className="provider-note">Place data © OpenStreetMap contributors · Search by Photon</p>
+      <p className="provider-note">
+        {place.offline
+          ? 'Coordinate lookup works entirely offline.'
+          : 'Place data © OpenStreetMap contributors · Search by Photon'}
+      </p>
     </article>
   )
 }

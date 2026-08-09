@@ -95,7 +95,7 @@ export function PlaceSearchSheet({
           <div className="search-state">
             <SearchX size={28} />
             <strong>No matches found</strong>
-            <span>Try a street address, business, landmark, town, or postcode.</span>
+            <span>Try a street address, business, landmark, postcode, or latitude and longitude.</span>
           </div>
         )}
       </section>

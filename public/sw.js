@@ -1,4 +1,4 @@
-const VERSION = 'mapventure-v2'
+const VERSION = 'mapventure-v3'
 const APP_CACHE = `${VERSION}-app`
 const TILE_CACHE = `${VERSION}-tiles`
 const CORE_ASSETS = [

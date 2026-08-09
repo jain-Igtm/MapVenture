@@ -39,8 +39,8 @@ export function SearchBar({
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder={activeMapName ? 'Search this map or an address' : 'Search places or your map'}
-          aria-label="Search saved places, real-world places, and addresses"
+          placeholder={activeMapName ? 'Search this map, address, or lat, lon' : 'Search places or enter lat, lon'}
+          aria-label="Search saved places, real-world places, addresses, and coordinates"
           enterKeyHint="search"
         />
       </div>

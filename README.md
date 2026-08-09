@@ -6,10 +6,14 @@ phone-first map with infrastructure for creating, categorizing, and notating loc
 
 - Save current locations or locations on maps.
 - Categorize pins of locations without limitations.
-- Search saved content plus real-world places and street addresses.
+- Search saved content plus real-world places, street addresses, and decimal coordinates.
+- Enter latitude and longitude to find, save, or directly guide toward a point without data.
 - Attach notes, tags, visit dates, and compressed photographs.
 - Build driving or walking routes between the current location, saved points, and searched places without leaving MapVenture.
-- Keep a route line, trip summary, and turn-by-turn list visible in the app.
+- Follow every live GPS fix while navigating instead of leaving the map at the route overview.
+- Switch automatically to a pitched, heading-up driving view with the road ahead and a permanent compass.
+- Show current maneuver progress, distance remaining, off-route status, and a one-tap recenter control.
+- Restore the last built route after an app restart so a data loss does not erase it.
 - Swipe down from any sheet or menu to dismiss it.
 - Track the current lunar phase and upcoming phase changes.
 - Record live GPS trails and boundaries with pause and resume controls.
@@ -30,7 +34,14 @@ All personal map data is stored locally in IndexedDB on user devices. GitHub con
 
 Real-world search sends only a user-submitted search phrase and optional location bias to
 Photon. Building a route sends its two endpoint coordinates and travel mode to Valhalla.
-Neither operation runs in the background.
+Coordinate lookup is local and does not contact either service. Live navigation uses foreground
+GPS while the route is active; it does not request Android background-location permission.
+
+New road routes still require a connection because MapVenture does not bundle a regional road
+graph. A route built while connected is saved locally, remains drawn without data, and can be
+resumed after a restart. Entered coordinates also offer clearly labeled direct compass guidance
+when road routing is unavailable. The driving map retains tiles it actually displays, up to a
+bounded cache; it does not bulk-download OpenStreetMap tiles.
 
 Browser storage can be cleared by the device or user, so regular complete backups are recommended.
 
@@ -81,7 +92,8 @@ Merging to `main` runs the verification workflow and the GitHub Pages deployment
 ## Mapping stack
 
 - React and TypeScript
-- Leaflet with OpenStreetMap tiles
+- Leaflet for the interactive field map
+- MapLibre GL with OpenStreetMap raster tiles for the pitched driving view
 - Photon for OpenStreetMap place and address search
 - Valhalla for OpenStreetMap-based driving and walking routes
 - Dexie/IndexedDB for local-first data

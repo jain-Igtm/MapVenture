@@ -26,9 +26,11 @@ interface RouteSheetProps {
   loading: boolean
   error?: string
   units: DistanceUnit
+  navigationActive: boolean
   onModeChange: (mode: TravelMode) => void
   onDestinationChange: (destination: RouteEndpoint) => void
   onBuild: (originId: string, destination: RouteEndpoint, mode: TravelMode) => void
+  onStart: () => void
   onClear: () => void
 }
 
@@ -40,9 +42,11 @@ export function RouteSheet({
   loading,
   error,
   units,
+  navigationActive,
   onModeChange,
   onDestinationChange,
   onBuild,
+  onStart,
   onClear
 }: RouteSheetProps) {
   const [originId, setOriginId] = useState('current')
@@ -146,9 +150,16 @@ export function RouteSheet({
             </div>
             <span className="route-summary-copy">
               <strong>{route.destination.label}</strong>
-              <small>Route stays visible when you swipe this menu down.</small>
+              <small>{route.direct ? 'Direct bearing only — this is not a road route.' : 'Saved on this device for use if your data drops.'}</small>
             </span>
           </section>
+
+          {route.origin.source === 'current' && !navigationActive && (
+            <button className="primary-button primary-button--wide" onClick={onStart}>
+              <Navigation size={20} />
+              Resume live navigation
+            </button>
+          )}
 
           <section className="route-directions">
             <div className="section-label-row">
@@ -182,7 +193,11 @@ export function RouteSheet({
         </div>
       )}
 
-      <p className="provider-note">Routing © OpenStreetMap contributors · Directions by Valhalla</p>
+      <p className="provider-note">
+        {route?.direct
+          ? 'Direct guidance uses only GPS and the entered coordinate. It is not a road route.'
+          : 'Routing © OpenStreetMap contributors · Directions by Valhalla'}
+      </p>
     </div>
   )
 }
